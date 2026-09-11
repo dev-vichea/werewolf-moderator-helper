@@ -25,6 +25,10 @@ export function resolveNightAndStartDay(callbacks = {}) {
   if (gameState.nightActions.witchHealed) gameState.potions.witchHealAvailable = false;
   if (gameState.nightActions.witchPoisonTarget) gameState.potions.witchPoisonAvailable = false;
   gameState.nightActions.bodyguardLastTarget = gameState.nightActions.bodyguardTarget;
+  if (gameState.nightActions.bodyguardLastTarget) {
+    const guarded = gameState.players.find(p => p.id === gameState.nightActions.bodyguardLastTarget);
+    if (guarded) guarded.isShielded = true;
+  }
 
   gameState.lastNightDeaths = deaths;
   const summary = deaths.length > 0 ? deaths.map(d => `${d.name} (${d.reason})`).join(', ') : 'Nobody died';
@@ -396,7 +400,9 @@ export function startNightPhase(callbacks = {}) {
       gameState.currentDay++;
       gameState.wizardStepIndex = 0;
       uiState.callerSubMode = 'target'; // Night 2+ is purely for skill targeting!
-      gameState.players.forEach(p => p.votes = 0);
+      gameState.players.forEach(p => {
+        p.votes = 0;
+      });
       gameState.nightActions.spellcasterTarget = null;
       gameState.nightActions.wolfTarget = null;
       gameState.nightActions.seerTarget = null;

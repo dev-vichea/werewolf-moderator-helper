@@ -8,7 +8,7 @@ import { loadAppState, saveAppState } from './state/storage.js';
 import { parseDialogMeta, showCustomAlert, showCustomConfirm, handleCustomDialogResolve, handleDialogBackdropClick, initDialogKeyboardListeners } from './ui/dialog.js';
 import { showGameToast } from './ui/toast.js';
 import { showWinOverlay, closeWinOverlay, returnToLobbyFromGameOver, stayAndViewTable } from './ui/modal/win-modal.js';
-import { openPlayerActionSheet, closePlayerActionSheet, sheetSaveName, sheetSetRole, sheetAssignRandomRole, sheetSetDoppelgangerTargetPrompt, sheetToggleLife, sheetToggleMayor, sheetToggleLover, sheetSeerReveal, sheetSaveNotes } from './ui/modal/action-sheet.js';
+import { openPlayerActionSheet, closePlayerActionSheet, sheetSaveName, sheetSetRole, sheetAssignRandomRole, sheetSetDoppelgangerTargetPrompt, sheetToggleLife, sheetToggleMayor, sheetToggleLover, sheetToggleShield, sheetToggleSilence, sheetSeerReveal, sheetSaveNotes } from './ui/modal/action-sheet.js';
 import { triggerHunterRevenge, processNextHunterRevenge, openHunterRevengeModal, executeHunterRevenge, passHunterRevenge, closeHunterRevengeModal, currentRevengeHunter, getCurrentRevengeHunter, setCurrentRevengeHunter } from './ui/modal/hunter-modal.js';
 import { getEvenlySpacedEllipseAngles } from './utils/math.js';
 import { toggleTimer, startTimer, pauseTimer, resetTimer, updateTimerDisplay, toggleSound, triggerTimerAlarm, silenceTimerAlarm, addTimerSeconds, triggerAttentionBell } from './utils/timer.js';
@@ -63,6 +63,8 @@ function wrappedSheetSetDoppelgangerTargetPrompt() { return sheetSetDoppelganger
 function wrappedSheetToggleLife() { return sheetToggleLife(appCallbacks); }
 function wrappedSheetToggleMayor() { return sheetToggleMayor(appCallbacks); }
 function wrappedSheetToggleLover() { return sheetToggleLover(appCallbacks); }
+function wrappedSheetToggleShield() { return sheetToggleShield(appCallbacks); }
+function wrappedSheetToggleSilence() { return sheetToggleSilence(appCallbacks); }
 function wrappedExecuteHunterRevenge(targetId) { return executeHunterRevenge(targetId, appCallbacks); }
 function wrappedPassHunterRevenge() { return passHunterRevenge(appCallbacks); }
 function wrappedReturnToLobbyFromGameOver() { return returnToLobbyFromGameOver(appCallbacks); }
@@ -153,6 +155,8 @@ const exposedExports = {
   sheetToggleLife: wrappedSheetToggleLife,
   sheetToggleMayor: wrappedSheetToggleMayor,
   sheetToggleLover: wrappedSheetToggleLover,
+  sheetToggleShield: wrappedSheetToggleShield,
+  sheetToggleSilence: wrappedSheetToggleSilence,
   sheetSeerReveal,
   sheetSaveNotes,
   triggerHunterRevenge,
@@ -265,6 +269,8 @@ export {
   wrappedSheetToggleLife as sheetToggleLife,
   wrappedSheetToggleMayor as sheetToggleMayor,
   wrappedSheetToggleLover as sheetToggleLover,
+  wrappedSheetToggleShield as sheetToggleShield,
+  wrappedSheetToggleSilence as sheetToggleSilence,
   sheetSeerReveal,
   sheetSaveNotes,
   triggerHunterRevenge,

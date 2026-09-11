@@ -51,6 +51,18 @@ export function openPlayerActionSheet(playerId) {
   document.getElementById('sheet-toggle-mayor-btn').textContent = p.isMayor ? '👑 Remove Mayor' : '👑 Make Mayor';
   document.getElementById('sheet-toggle-lover-btn').textContent = p.isLover ? '💘 Remove Lover' : '💘 Make Lover';
 
+  const shieldBtn = document.getElementById('sheet-toggle-shield-btn');
+  if (shieldBtn) {
+    shieldBtn.textContent = p.isShielded ? '🛡️ Remove Shield' : '🛡️ Give Shield';
+    shieldBtn.className = p.isShielded ? 'btn btn-warning' : 'btn btn-outline';
+  }
+
+  const silenceBtn = document.getElementById('sheet-toggle-silence-btn');
+  if (silenceBtn) {
+    silenceBtn.textContent = p.isSilenced ? '🤐 Unsilence' : '🤐 Silence';
+    silenceBtn.className = p.isSilenced ? 'btn btn-warning' : 'btn btn-outline';
+  }
+
   // Doppelganger target setting row
   const doppelRow = document.getElementById('sheet-doppelganger-row');
   if (doppelRow) {
@@ -247,6 +259,50 @@ export function sheetToggleLover(callbacks = {}) {
   closePlayerActionSheet();
   if (typeof callbacks.renderGameScreen === 'function') {
     callbacks.renderGameScreen();
+  }
+}
+
+export function sheetToggleShield(callbacks = {}) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+  p.isShielded = !p.isShielded;
+  if (!p.isShielded && gameState.nightActions.bodyguardTarget === p.id) {
+    gameState.nightActions.bodyguardTarget = null;
+  }
+  soundManager.playBeep();
+  showGameToast(p.isShielded ? `🛡️ #${p.seat} ${p.name} is now shielded!` : `🛡️ Shield removed from #${p.seat} ${p.name}.`);
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Shield Override', `${p.name} ${p.isShielded ? 'granted shield 🛡️' : 'shield removed'}`);
+  }
+  saveAppState();
+  closePlayerActionSheet();
+  if (typeof callbacks.renderGameScreen === 'function') {
+    callbacks.renderGameScreen();
+  } else if (typeof globalThis.renderGameScreen === 'function') {
+    globalThis.renderGameScreen();
+  }
+}
+
+export function sheetToggleSilence(callbacks = {}) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+  p.isSilenced = !p.isSilenced;
+  if (!p.isSilenced && gameState.nightActions.spellcasterTarget === p.id) {
+    gameState.nightActions.spellcasterTarget = null;
+  }
+  soundManager.playBeep();
+  showGameToast(p.isSilenced ? `🤐 #${p.seat} ${p.name} is silenced!` : `🤐 Silence removed from #${p.seat} ${p.name}.`);
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Silence Override', `${p.name} ${p.isSilenced ? 'silenced 🤐' : 'unsilenced'}`);
+  }
+  saveAppState();
+  closePlayerActionSheet();
+  if (typeof callbacks.renderGameScreen === 'function') {
+    callbacks.renderGameScreen();
+  } else if (typeof globalThis.renderGameScreen === 'function') {
+    globalThis.renderGameScreen();
   }
 }
 

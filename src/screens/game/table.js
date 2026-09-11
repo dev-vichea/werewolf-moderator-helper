@@ -522,11 +522,11 @@ export function renderTouchTable() {
     }
 
     const isWolfTarget = (gameState.nightActions.wolfTarget === p.id);
-    const isShieldTarget = (gameState.nightActions.bodyguardTarget === p.id);
+    const isShieldTarget = Boolean(p.isShielded || (gameState.nightActions.bodyguardTarget === p.id) || (gameState.nightActions.bodyguardLastTarget === p.id));
     const isPoisonTarget = (gameState.nightActions.witchPoisonTarget === p.id);
     const isHealTarget = (gameState.nightActions.witchHealed && (gameState.nightActions.witchHealTarget === p.id || (!gameState.nightActions.witchHealTarget && gameState.nightActions.wolfTarget === p.id)));
-    const isSilenced = (gameState.nightActions.spellcasterTarget === p.id);
-    const isMirrorTarget = (gameState.nightActions.doppelgangerTarget === p.id);
+    const isSilenced = Boolean(p.isSilenced || gameState.nightActions.spellcasterTarget === p.id);
+    const isMirrorTarget = Boolean(gameState.nightActions.doppelgangerTarget === p.id || p.doppelTarget);
     const isCupidTarget = (gameState.phase === 'NIGHT' && currentStep && currentStep.id === 'cupid' && uiState.callerSubMode === 'target' && (gameState.nightActions.cupidLover1 === p.id || gameState.nightActions.cupidLover2 === p.id));
     const isSeerTarget = (gameState.phase === 'NIGHT' && currentStep && currentStep.id === 'seer' && gameState.nightActions.seerTarget === p.id);
     const isSeerWolf = isSeerTarget && (p.role === 'Werewolf' || p.role === 'Lycan');
@@ -586,26 +586,38 @@ export function renderTouchTable() {
     node.style.left = `${Math.round(x)}px`;
     node.style.top = `${Math.round(y)}px`;
 
-    let overlayIcon = '';
-    if (isDeadCandidate) overlayIcon = '🎭';
-    else if (p.status === 'dead') overlayIcon = '💀';
-    else if (isHealTarget) overlayIcon = '💚';
-    else if (isWolfTarget) overlayIcon = '🐺';
-    else if (isShieldTarget) overlayIcon = '🛡️';
-    else if (isPoisonTarget) overlayIcon = '☠️';
-    else if (isSilenced) overlayIcon = '🤐';
-    else if (isMirrorTarget) overlayIcon = '🎭';
-    else if (isSeerTarget) overlayIcon = isSeerWolf ? '🟢' : '🔴';
-    else if (p.checkedBySeer) overlayIcon = '👁️';
+    // Collect ALL active status emojis (supports 1+ simultaneous emojis)
+    const statusEmojis = [];
+    if (p.status === 'dead') {
+      statusEmojis.push({ emoji: '💀', title: 'Dead' });
+      if (p.isMayor) statusEmojis.push({ emoji: '👑', title: 'Former Mayor' });
+      if (p.isLover) statusEmojis.push({ emoji: '💘', title: 'Lover' });
+    } else {
+      if (isShieldTarget) statusEmojis.push({ emoji: '🛡️', title: 'Shielded (Protected)' });
+      if (p.isLover) statusEmojis.push({ emoji: '💘', title: 'Lover' });
+      if (p.isMayor) statusEmojis.push({ emoji: '👑', title: 'Mayor' });
+      if (isSilenced) statusEmojis.push({ emoji: '🤐', title: 'Silenced (Cannot Speak)' });
+      if (p.checkedBySeer) statusEmojis.push({ emoji: '👁️', title: 'Inspected by Seer' });
+      if (isHealTarget) statusEmojis.push({ emoji: '💚', title: 'Healed by Witch' });
+      if (isPoisonTarget) statusEmojis.push({ emoji: '☠️', title: 'Poisoned by Witch' });
+      if (isWolfTarget) statusEmojis.push({ emoji: '🐺', title: 'Targeted by Werewolves' });
+      if (isMirrorTarget) statusEmojis.push({ emoji: '🎭', title: 'Doppelganger Target' });
+      if (isSeerTarget) statusEmojis.push({ emoji: isSeerWolf ? '🟢' : '🔴', title: isSeerWolf ? 'Seer: Wolf!' : 'Seer: Town' });
+      if (isDeadCandidate) statusEmojis.push({ emoji: '🎭', title: 'Mimic Candidate' });
+    }
 
     node.innerHTML = `
-      <span class="node-seat-badge">#${p.seat}</span>
+      <div class="node-seat-header">
+        <span class="node-seat-badge">#${p.seat}</span>
+        ${statusEmojis.length > 0 ? `
+          <span class="node-status-emojis" title="${statusEmojis.map(s => s.title).join(' • ')}">
+            ${statusEmojis.map(s => `<span class="status-emoji">${s.emoji}</span>`).join('')}
+          </span>
+        ` : ''}
+      </div>
       ${turnBadgeText ? `<span class="node-turn-indicator-badge">${turnBadgeText}</span>` : ''}
       <div class="node-avatar-wrapper">
         <img src="${getRoleImage(p.role)}" class="node-avatar" alt="${p.role}" onerror="this.src='images/anonymous.jpeg'">
-        ${overlayIcon ? `<span class="node-status-overlay">${overlayIcon}</span>` : ''}
-        ${p.isLover && p.status === 'alive' ? `<span class="node-lover-badge">💘</span>` : ''}
-        ${p.isMayor && p.status === 'alive' ? `<span class="node-mayor-badge">👑</span>` : ''}
         ${p.status === 'alive' && p.votes && p.votes > 0 ? `<span class="node-vote-badge" onclick="decrementPlayerVote('${p.id}', event)" title="Tap to -1 vote">${p.votes}v<span class="vote-minus-symbol">-</span></span>` : ''}
       </div>
       <div class="node-seat-name"><span class="node-seat-num-inline">#${p.seat}</span> ${p.name}</div>
@@ -840,10 +852,13 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
     }
     if (gameState.nightActions.bodyguardTarget === playerId) {
       gameState.nightActions.bodyguardTarget = null;
+      player.isShielded = false;
       cancelAutoAdvance();
       soundManager.playBeep();
     } else {
+      gameState.players.forEach(x => { if (x.id !== playerId) x.isShielded = false; });
       gameState.nightActions.bodyguardTarget = playerId;
+      player.isShielded = true;
       soundManager.playBeep();
       scheduleAutoAdvance(600, callbacks);
     }
@@ -853,10 +868,13 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
   } else if (currentStep.id === 'spellcaster') {
     if (gameState.nightActions.spellcasterTarget === playerId) {
       gameState.nightActions.spellcasterTarget = null;
+      player.isSilenced = false;
       cancelAutoAdvance();
       soundManager.playBeep();
     } else {
+      gameState.players.forEach(x => { if (x.id !== playerId) x.isSilenced = false; });
       gameState.nightActions.spellcasterTarget = playerId;
+      player.isSilenced = true;
       soundManager.playBeep();
       scheduleAutoAdvance(600, callbacks);
     }
