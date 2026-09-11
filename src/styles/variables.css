@@ -1,0 +1,55 @@
+/* ==========================================================================
+   WEREWOLF MODERATOR - VARIABLES & DESIGN SYSTEM
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Color Palette */
+  --bg-primary: #070a12;
+  --bg-secondary: #0d1322;
+  --bg-surface: #131b2e;
+  --bg-surface-elevated: #1b2640;
+  --bg-glass: rgba(19, 27, 46, 0.85);
+  --bg-glass-card: rgba(23, 33, 56, 0.9);
+
+  --border-subtle: rgba(148, 163, 184, 0.14);
+  --border-medium: rgba(148, 163, 184, 0.28);
+  --border-accent: rgba(168, 85, 247, 0.5);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  /* Role & State Colors */
+  --role-wolf: #ef4444;
+  --role-wolf-glow: rgba(239, 68, 68, 0.45);
+  --role-seer: #a855f7;
+  --role-seer-glow: rgba(168, 85, 247, 0.45);
+  --role-witch: #10b981;
+  --role-guard: #f59e0b;
+  --role-hunter: #f97316;
+  --role-cupid: #ec4899;
+  --role-mayor: #eab308;
+  --role-town: #38bdf8;
+
+  --alive: #10b981;
+  --dead: #64748b;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+
+  /* Radii & Shadows */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 30px rgba(0, 0, 0, 0.7);
+
+  /* Typography */
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-body: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+}

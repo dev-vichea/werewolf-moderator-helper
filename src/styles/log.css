@@ -1,0 +1,36 @@
+/* ==========================================================================
+   WEREWOLF MODERATOR - LOG & ROLES SCREEN STYLES
+   ========================================================================== */
+
+.log-roles-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.roles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.history-entry {
+  background: rgba(15, 23, 42, 0.65);
+  border-left: 3px solid #a855f7;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  font-size: 0.85rem;
+}
+
+.history-entry-time {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #c084fc;
+  margin-bottom: 0.15rem;
+}

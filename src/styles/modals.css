@@ -1,0 +1,365 @@
+/* ==========================================================================
+   WEREWOLF MODERATOR - MODALS, ACTION SHEETS & DIALOGS
+   ========================================================================== */
+
+/* TOUCH ACTION SHEET & 1-TAP ROLE PICKER */
+.action-sheet-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(3, 7, 18, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.action-sheet-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.action-sheet {
+  background: var(--bg-surface);
+  border-top: 2px solid var(--border-medium);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  width: 100%;
+  max-width: 520px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(100%);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.action-sheet-backdrop.open .action-sheet {
+  transform: translateY(0);
+}
+
+.action-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.action-sheet-role-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  background: rgba(10, 15, 26, 0.7);
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.sheet-role-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.35rem 0.2rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 700;
+  transition: all 0.15s;
+}
+
+.sheet-role-btn:active {
+  transform: scale(0.92);
+}
+
+.sheet-role-btn.active {
+  background: rgba(168, 85, 247, 0.3);
+  border-color: #a855f7;
+  color: white;
+}
+
+.sheet-role-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.action-sheet-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Win Overlay Backdrop & Modal Card */
+.win-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.win-overlay-backdrop.show {
+  display: flex;
+}
+
+.win-modal-card {
+  background: linear-gradient(145deg, rgba(30, 27, 75, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border: 2px solid #a855f7;
+  box-shadow: 0 0 50px rgba(168, 85, 247, 0.5), inset 0 0 20px rgba(168, 85, 247, 0.2);
+  border-radius: var(--radius-xl);
+  max-width: 480px;
+  width: 100%;
+  padding: 1.75rem 1.5rem;
+  text-align: center;
+  animation: modalPopIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPopIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.win-trophy-icon {
+  font-size: 3.2rem;
+  margin-bottom: 0.35rem;
+  filter: drop-shadow(0 0 16px rgba(250, 204, 21, 0.6));
+  animation: bounceTrophy 1s infinite alternate ease-in-out;
+}
+
+@keyframes bounceTrophy {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-8px); }
+}
+
+.win-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 0.35rem;
+}
+
+.win-desc {
+  color: #cbd5e1;
+  font-size: 0.92rem;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.win-roster-summary {
+  background: rgba(10, 15, 26, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  max-height: 180px;
+  overflow-y: auto;
+  text-align: left;
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.win-roster-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.win-roster-pill.alive {
+  border-left: 3px solid #10b981;
+}
+
+.win-roster-pill.dead {
+  border-left: 3px solid #ef4444;
+  opacity: 0.65;
+}
+
+.win-countdown-bar {
+  font-size: 0.85rem;
+  color: #c084fc;
+  margin-bottom: 1.15rem;
+  font-weight: 700;
+}
+
+.win-actions-row {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Hunter revenge buttons */
+.hunter-target-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.hunter-target-btn:hover, .hunter-target-btn:active {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  transform: scale(0.98);
+}
+
+.table-touch-node.doppel-dead-candidate {
+  opacity: 0.95 !important;
+  filter: none !important;
+  border: 2px dashed #ec4899 !important;
+  box-shadow: 0 0 18px rgba(236, 72, 153, 0.7) !important;
+  animation: pulseDoppelCandidate 1.3s infinite alternate ease-in-out;
+  cursor: pointer;
+}
+
+@keyframes pulseDoppelCandidate {
+  0% { transform: translate3d(-50%, -50%, 0) scale(1); box-shadow: 0 0 8px rgba(236, 72, 153, 0.4); }
+  100% { transform: translate3d(-50%, -50%, 0) scale(1.08); box-shadow: 0 0 22px rgba(236, 72, 153, 0.9); }
+}
+
+/* CUSTOM THEMED ALERT & CONFIRM MODAL DIALOG */
+.custom-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(8, 12, 22, 0.84);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.custom-dialog-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.custom-dialog-card {
+  width: 100%;
+  max-width: 410px;
+  background: radial-gradient(circle at top, rgba(34, 27, 65, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border: 1.5px solid rgba(168, 85, 247, 0.5);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), 0 0 35px rgba(168, 85, 247, 0.3);
+  padding: 1.6rem 1.4rem 1.4rem 1.4rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  transform: scale(0.9) translateY(16px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.custom-dialog-backdrop.active .custom-dialog-card {
+  transform: scale(1) translateY(0);
+}
+
+.custom-dialog-icon {
+  font-size: 2.8rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 16px rgba(168, 85, 247, 0.6));
+  animation: dialogIconPop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dialogIconPop {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.custom-dialog-title {
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.custom-dialog-body {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #cbd5e1;
+  white-space: pre-line;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 0.2rem 0.4rem;
+  word-break: break-word;
+}
+
+.custom-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.45rem;
+}
+
+.custom-dialog-btn {
+  flex: 1;
+  padding: 0.6rem 1rem !important;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  border-radius: var(--radius-md) !important;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.custom-dialog-btn:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 600px) {
+  .custom-dialog-card {
+    max-width: 340px;
+    padding: 1.3rem 1.1rem;
+    gap: 0.65rem;
+  }
+  .custom-dialog-icon {
+    font-size: 2.3rem;
+  }
+  .custom-dialog-title {
+    font-size: 1.05rem;
+  }
+  .custom-dialog-body {
+    font-size: 0.86rem;
+  }
+  .custom-dialog-btn {
+    font-size: 0.84rem !important;
+    padding: 0.55rem 0.85rem !important;
+  }
+}

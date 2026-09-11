@@ -1,0 +1,19 @@
+{
+  "name": "werewolf-moderator",
+  "version": "2.0.0",
+  "description": "Mobile-first Werewolf Moderator touch table assistant with physical card support",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "serve": "npx -y serve -p 8089",
+    "start": "npx -y serve -p 8089"
+  },
+  "keywords": [
+    "werewolf",
+    "moderator",
+    "boardgame",
+    "party-game"
+  ],
+  "author": "",
+  "license": "MIT"
+}

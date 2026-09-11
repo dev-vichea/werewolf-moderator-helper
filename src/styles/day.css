@@ -1,0 +1,30 @@
+/* ==========================================================================
+   WEREWOLF MODERATOR - DAY CONTROLS & PHASE STYLES
+   ========================================================================== */
+
+.day-controls-bar {
+  background: linear-gradient(145deg, rgba(38, 30, 20, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.silenced-banner {
+  background: rgba(147, 51, 234, 0.25);
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  border-radius: var(--radius-md);
+  padding: 0.45rem 0.85rem;
+  margin-bottom: 0.6rem;
+  color: #e9d5ff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}

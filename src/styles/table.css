@@ -1,0 +1,1074 @@
+/* ==========================================================================
+   WEREWOLF MODERATOR - TOUCH CIRCULAR TABLE, TOP BAR & RADIAL CARDS
+   ========================================================================== */
+
+.game-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.game-phase-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.game-phase-pill {
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 0.3rem 0.8rem;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.game-phase-pill.night {
+  background: rgba(147, 51, 234, 0.25);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+.game-phase-pill.day {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.game-timer-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: monospace;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(10, 15, 26, 0.8);
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+/* TABLE TOOLBAR & CONTROLS */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding: 0 0.25rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.table-toolbar-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.table-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.table-tool-btn {
+  font-size: 0.74rem !important;
+  padding: 0.25rem 0.6rem !important;
+  border-radius: var(--radius-sm) !important;
+  font-weight: 700 !important;
+}
+
+/* TOUCH-FRIENDLY RESPONSIVE CIRCULAR TABLE */
+.touch-table-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: min(96vw, 920px);
+  height: clamp(400px, min(88vw, 66vh), 760px);
+  margin: 0 auto 0.75rem auto;
+  border-radius: var(--radius-full);
+  background: #050811;
+  border: 2px dashed rgba(148, 163, 184, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.8), 0 8px 32px rgba(0, 0, 0, 0.4);
+  touch-action: manipulation;
+  transition: height 0.3s ease, max-width 0.3s ease, border-color 0.8s ease, box-shadow 0.8s ease;
+  contain: layout style;
+}
+
+/* Expanded Table Mode (Full Viewport for Tabletop Play) */
+.touch-table-wrapper.expanded {
+  max-width: 100%;
+  height: clamp(520px, 86vh, 920px);
+  border-color: rgba(168, 85, 247, 0.45);
+  box-shadow: inset 0 0 60px rgba(168, 85, 247, 0.15), 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ==========================================================================
+   ANIMATED TABLE AMBIENT BACKGROUNDS (NIGHT & SUNRISE / DAY)
+   ========================================================================== */
+
+.table-ambient-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ambient-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+
+/* --------------------------------------------------------------------------
+   NIGHT TIME ATMOSPHERE (Twinkling Stars, Moonbeams, Cosmic Nebula)
+   -------------------------------------------------------------------------- */
+
+.touch-table-wrapper.phase-night {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: inset 0 0 60px rgba(3, 7, 18, 0.9),
+              0 12px 40px rgba(0, 0, 0, 0.65),
+              0 0 30px rgba(99, 102, 241, 0.18);
+  animation: nightTablePulse 6s ease-in-out infinite alternate;
+}
+
+.touch-table-wrapper.phase-night .ambient-layer.ambient-night {
+  opacity: 1;
+}
+
+.night-sky-base {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, #0c142b 0%, #070d1e 52%, #020409 100%);
+  animation: nightSkyBreathe 12s ease-in-out infinite alternate;
+}
+
+.night-stars-layer-1 {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(1.5px 1.5px at 15% 18%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1.5px 1.5px at 35% 12%, rgba(192, 132, 252, 0.9), transparent),
+    radial-gradient(2px 2px at 78% 22%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1.2px 1.2px at 85% 65%, rgba(147, 197, 253, 0.9), transparent),
+    radial-gradient(1.5px 1.5px at 20% 75%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(2px 2px at 62% 82%, rgba(192, 132, 252, 0.9), transparent),
+    radial-gradient(1.2px 1.2px at 45% 85%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.6px 1.6px at 82% 38%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1px 1px at 28% 42%, rgba(147, 197, 253, 0.85), transparent),
+    radial-gradient(1.5px 1.5px at 92% 16%, rgba(255, 255, 255, 0.9), transparent);
+  background-size: 100% 100%;
+  animation: starsTwinkleSlow 4.5s ease-in-out infinite alternate;
+}
+
+.night-stars-layer-2 {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(1.2px 1.2px at 10% 45%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1.2px 1.2px at 30% 68%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.8px 1.8px at 50% 12%, rgba(168, 85, 247, 0.95), transparent),
+    radial-gradient(1.4px 1.4px at 72% 58%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.2px 1.2px at 65% 28%, rgba(147, 197, 253, 0.85), transparent),
+    radial-gradient(1.6px 1.6px at 90% 82%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 40% 32%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 18% 88%, rgba(192, 132, 252, 0.8), transparent);
+  background-size: 100% 100%;
+  animation: starsTwinkleFast 3.2s ease-in-out infinite alternate-reverse;
+}
+
+.night-nebula-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 48%, rgba(124, 58, 237, 0.18) 0%, rgba(56, 189, 248, 0.12) 38%, rgba(15, 23, 42, 0) 72%);
+  animation: nebulaDrift 14s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.night-moonlight-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(180px, 35vw, 280px);
+  height: clamp(180px, 35vw, 280px);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(147, 197, 253, 0.16) 0%, rgba(99, 102, 241, 0.08) 45%, transparent 70%);
+  animation: moonbeamBreathe 7s ease-in-out infinite alternate;
+  filter: blur(8px);
+}
+
+/* --------------------------------------------------------------------------
+   SUNRISE & DAY TIME ATMOSPHERE (Golden Dawn, Sunbeams, Morning Skies)
+   -------------------------------------------------------------------------- */
+
+.touch-table-wrapper.phase-day,
+.touch-table-wrapper.phase-sunrise {
+  border-color: rgba(245, 158, 11, 0.48);
+  box-shadow: inset 0 0 60px rgba(15, 23, 42, 0.75),
+              0 12px 40px rgba(0, 0, 0, 0.55),
+              0 0 35px rgba(245, 158, 11, 0.25);
+  animation: dayTablePulse 6s ease-in-out infinite alternate;
+}
+
+.touch-table-wrapper.phase-day .ambient-layer.ambient-sunrise,
+.touch-table-wrapper.phase-sunrise .ambient-layer.ambient-sunrise {
+  opacity: 1;
+}
+
+.sunrise-sky-base {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 65%, rgba(245, 158, 11, 0.28) 0%, rgba(217, 119, 6, 0.22) 32%, rgba(180, 83, 9, 0.16) 58%, rgba(15, 23, 42, 0.88) 88%);
+  animation: sunriseSkyBreathe 10s ease-in-out infinite alternate;
+}
+
+.sunrise-sunbeams {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: repeating-conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(251, 191, 36, 0.08) 0deg 12deg,
+    transparent 12deg 24deg,
+    rgba(245, 158, 11, 0.06) 24deg 36deg,
+    transparent 36deg 48deg
+  );
+  animation: rotateSunbeams 80s linear infinite;
+  filter: blur(4px);
+  will-change: transform;
+}
+
+.sunrise-sun-orb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(160px, 32vw, 240px);
+  height: clamp(160px, 32vw, 240px);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(254, 240, 138, 0.45) 0%, rgba(251, 191, 36, 0.28) 28%, rgba(245, 158, 11, 0.14) 55%, transparent 75%);
+  animation: sunPulse 5s ease-in-out infinite alternate;
+  filter: blur(10px);
+}
+
+.sunrise-dawn-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 80%, rgba(244, 63, 94, 0.18) 0%, rgba(245, 158, 11, 0.2) 36%, transparent 72%);
+  animation: dawnGlowShift 8s ease-in-out infinite alternate;
+}
+
+.sunrise-particles {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(1.5px 1.5px at 25% 28%, rgba(254, 240, 138, 0.85), transparent),
+    radial-gradient(2px 2px at 72% 32%, rgba(251, 191, 36, 0.9), transparent),
+    radial-gradient(1.2px 1.2px at 35% 68%, rgba(254, 240, 138, 0.8), transparent),
+    radial-gradient(1.8px 1.8px at 82% 72%, rgba(251, 191, 36, 0.85), transparent),
+    radial-gradient(1.5px 1.5px at 52% 18%, rgba(254, 240, 138, 0.9), transparent),
+    radial-gradient(1.2px 1.2px at 15% 62%, rgba(251, 191, 36, 0.75), transparent);
+  background-size: 100% 100%;
+  animation: morningSparkle 5s ease-in-out infinite alternate;
+}
+
+/* --------------------------------------------------------------------------
+   AMBIENT KEYFRAME ANIMATIONS
+   -------------------------------------------------------------------------- */
+
+@keyframes nightTablePulse {
+  0% {
+    border-color: rgba(99, 102, 241, 0.32);
+    box-shadow: inset 0 0 50px rgba(3, 7, 18, 0.9), 0 10px 35px rgba(0, 0, 0, 0.65), 0 0 24px rgba(99, 102, 241, 0.14);
+  }
+  100% {
+    border-color: rgba(168, 85, 247, 0.48);
+    box-shadow: inset 0 0 65px rgba(3, 7, 18, 0.95), 0 14px 45px rgba(0, 0, 0, 0.75), 0 0 38px rgba(168, 85, 247, 0.25);
+  }
+}
+
+@keyframes dayTablePulse {
+  0% {
+    border-color: rgba(245, 158, 11, 0.42);
+    box-shadow: inset 0 0 50px rgba(15, 23, 42, 0.75), 0 10px 35px rgba(0, 0, 0, 0.55), 0 0 28px rgba(245, 158, 11, 0.2);
+  }
+  100% {
+    border-color: rgba(251, 191, 36, 0.62);
+    box-shadow: inset 0 0 65px rgba(15, 23, 42, 0.8), 0 14px 45px rgba(0, 0, 0, 0.65), 0 0 45px rgba(251, 191, 36, 0.32);
+  }
+}
+
+@keyframes nightSkyBreathe {
+  0% { filter: brightness(0.96) hue-rotate(0deg); }
+  100% { filter: brightness(1.08) hue-rotate(-12deg); }
+}
+
+@keyframes starsTwinkleSlow {
+  0% { opacity: 0.65; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1.02); }
+}
+
+@keyframes starsTwinkleFast {
+  0% { opacity: 0.45; }
+  50% { opacity: 1; }
+  100% { opacity: 0.65; }
+}
+
+@keyframes nebulaDrift {
+  0% { transform: scale(0.95) rotate(0deg); opacity: 0.8; }
+  50% { transform: scale(1.06) rotate(3deg); opacity: 1; }
+  100% { transform: scale(0.98) rotate(-3deg); opacity: 0.85; }
+}
+
+@keyframes moonbeamBreathe {
+  0% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.75; }
+  100% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+}
+
+@keyframes sunriseSkyBreathe {
+  0% { filter: brightness(0.96) saturate(1); }
+  100% { filter: brightness(1.12) saturate(1.18); }
+}
+
+@keyframes rotateSunbeams {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes sunPulse {
+  0% { transform: translate(-50%, -50%) scale(0.94); opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+}
+
+@keyframes dawnGlowShift {
+  0% { opacity: 0.7; transform: scaleY(0.95); }
+  100% { opacity: 1; transform: scaleY(1.05); }
+}
+
+@keyframes morningSparkle {
+  0% { opacity: 0.55; transform: translateY(0); }
+  100% { opacity: 1; transform: translateY(-4px); }
+}
+
+/* Center Hub Harmony */
+.touch-table-wrapper.phase-day .table-center-hub,
+.touch-table-wrapper.phase-sunrise .table-center-hub {
+  border-color: rgba(245, 158, 11, 0.65);
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.28) 0%, rgba(15, 23, 42, 0.92) 70%);
+  box-shadow: 0 0 35px rgba(245, 158, 11, 0.4);
+}
+
+.touch-table-wrapper.phase-night .table-center-hub {
+  border-color: rgba(168, 85, 247, 0.6);
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, rgba(15, 23, 42, 0.92) 70%);
+  box-shadow: 0 0 35px rgba(168, 85, 247, 0.35);
+}
+
+/* Center Hub (Dynamic Status Controller & Tappable Phase Switcher) */
+.table-center-hub {
+  width: clamp(96px, 19vw, 130px);
+  height: clamp(96px, 19vw, 130px);
+  border-radius: var(--radius-full);
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, rgba(15, 23, 42, 0.9) 70%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 2px solid rgba(168, 85, 247, 0.5);
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.3);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  z-index: 10;
+  padding: 0.35rem 0.25rem;
+  box-sizing: border-box;
+}
+
+.table-center-hub:hover, .table-center-hub:active {
+  transform: scale(1.08);
+  border-color: #fbbf24;
+  box-shadow: 0 0 40px rgba(245, 158, 11, 0.5);
+}
+
+.table-center-hub.hub-ready {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 28px rgba(16, 185, 129, 0.65), inset 0 0 16px rgba(16, 185, 129, 0.25) !important;
+  animation: hubGlowPulse 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes hubGlowPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.45);
+  }
+  100% {
+    transform: scale(1.06);
+    box-shadow: 0 0 32px rgba(16, 185, 129, 0.85), inset 0 0 20px rgba(16, 185, 129, 0.35);
+  }
+}
+
+.table-center-hub.hub-role-dead {
+  border-color: rgba(239, 68, 68, 0.7) !important;
+  background: radial-gradient(circle at center, rgba(35, 15, 25, 0.95) 0%, rgba(15, 10, 20, 0.95) 100%) !important;
+  box-shadow: 0 0 24px rgba(239, 68, 68, 0.45), inset 0 0 16px rgba(239, 68, 68, 0.2) !important;
+  animation: hubDeadPulse 1.8s infinite alternate ease-in-out;
+}
+
+@keyframes hubDeadPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.35);
+  }
+  100% {
+    transform: scale(1.04);
+    box-shadow: 0 0 28px rgba(239, 68, 68, 0.65), inset 0 0 16px rgba(239, 68, 68, 0.3);
+  }
+}
+
+.table-center-icon {
+  font-size: clamp(1.6rem, 3.8vw, 2.2rem);
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
+  line-height: 1.1;
+}
+
+.table-center-phase {
+  font-size: clamp(0.68rem, 1.5vw, 0.82rem);
+  font-weight: 800;
+  color: #c084fc;
+  text-transform: uppercase;
+  margin-top: 0.12rem;
+  max-width: 96%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-center-sub {
+  font-size: clamp(0.56rem, 1.2vw, 0.68rem);
+  color: #fbbf24;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-top: 0.08rem;
+  max-width: 96%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Witch Turn Center Hub - Clean & Simple Two Circle Buttons */
+.table-center-hub.witch-turn-hub {
+  width: auto !important;
+  height: auto !important;
+  min-height: unset !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  cursor: default !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  animation: none !important;
+}
+
+.table-center-hub.witch-turn-hub:hover {
+  transform: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+.table-hub-default-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.table-hub-witch {
+  width: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.witch-potions-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 3.5vw, 22px);
+}
+
+.witch-hub-btn {
+  width: clamp(60px, 13.5vw, 76px);
+  height: clamp(60px, 13.5vw, 76px);
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  border: 2.5px solid;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.witch-hub-btn:active {
+  transform: scale(0.92);
+}
+
+.witch-hub-btn .witch-btn-icon {
+  font-size: clamp(1.8rem, 4.2vw, 2.3rem);
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+}
+
+/* Heal button states */
+.witch-hub-btn.heal.ready {
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.35) 0%, rgba(6, 78, 59, 0.9) 85%);
+  border-color: #10b981;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.5), inset 0 0 10px rgba(16, 185, 129, 0.25);
+  color: #34d399;
+}
+
+.witch-hub-btn.heal.ready:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.8), inset 0 0 14px rgba(16, 185, 129, 0.45);
+}
+
+.witch-hub-btn.heal.selecting {
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.55) 0%, rgba(6, 78, 59, 0.95) 85%) !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 0 32px rgba(52, 211, 153, 0.9), inset 0 0 15px rgba(52, 211, 153, 0.55) !important;
+  animation: witchPotionPulseGreen 1.1s infinite alternate ease-in-out;
+}
+
+.witch-hub-btn.heal.active-used {
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.5) 0%, rgba(5, 150, 105, 0.95) 85%) !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.7) !important;
+}
+
+/* Poison button states */
+.witch-hub-btn.poison.ready {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.35) 0%, rgba(127, 29, 29, 0.9) 85%);
+  border-color: #ef4444;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.5), inset 0 0 10px rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+
+.witch-hub-btn.poison.ready:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.8), inset 0 0 14px rgba(239, 68, 68, 0.45);
+}
+
+.witch-hub-btn.poison.selecting {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.55) 0%, rgba(127, 29, 29, 0.95) 85%) !important;
+  border-color: #f87171 !important;
+  box-shadow: 0 0 32px rgba(248, 113, 113, 0.9), inset 0 0 15px rgba(248, 113, 113, 0.55) !important;
+  animation: witchPotionPulseRed 1.1s infinite alternate ease-in-out;
+}
+
+.witch-hub-btn.poison.active-used {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.5) 0%, rgba(185, 28, 28, 0.95) 85%) !important;
+  border-color: #f87171 !important;
+  box-shadow: 0 0 24px rgba(239, 68, 68, 0.7) !important;
+}
+
+/* Depleted / Used button */
+.witch-hub-btn.disabled {
+  opacity: 0.28 !important;
+  filter: grayscale(0.9);
+  cursor: not-allowed !important;
+  border-color: rgba(148, 163, 184, 0.25) !important;
+  background: rgba(30, 41, 59, 0.45) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+@keyframes witchPotionPulseGreen {
+  0% { transform: scale(1); box-shadow: 0 0 18px rgba(52, 211, 153, 0.5); }
+  100% { transform: scale(1.12); box-shadow: 0 0 36px rgba(52, 211, 153, 0.95), inset 0 0 14px rgba(52, 211, 153, 0.5); }
+}
+
+@keyframes witchPotionPulseRed {
+  0% { transform: scale(1); box-shadow: 0 0 18px rgba(248, 113, 113, 0.5); }
+  100% { transform: scale(1.12); box-shadow: 0 0 36px rgba(248, 113, 113, 0.95), inset 0 0 14px rgba(248, 113, 113, 0.5); }
+}
+
+/* Status badge for active used potion */
+.witch-circle-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.74rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #0f172a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.witch-hub-btn.heal .witch-circle-badge {
+  background: #10b981;
+  color: white;
+}
+
+.witch-hub-btn.poison .witch-circle-badge {
+  background: #ef4444;
+  color: white;
+}
+
+/* PLAYER NODES ON TABLE */
+.table-touch-node {
+  position: absolute;
+  width: 108px;
+  padding: 0.45rem 0.3rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-glass-card);
+  border: 1.5px solid var(--border-medium);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  transform: translate3d(-50%, -50%, 0);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: left 0.55s cubic-bezier(0.34, 1.56, 0.64, 1),
+              top 0.55s cubic-bezier(0.34, 1.56, 0.64, 1),
+              transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              border-color 0.3s ease,
+              box-shadow 0.3s ease,
+              opacity 0.35s ease,
+              filter 0.35s ease;
+  z-index: 5;
+}
+
+.table-touch-node:active {
+  transform: translate3d(-50%, -50%, 0) scale(1.08);
+}
+
+/* Target Highlights */
+.table-touch-node.targeted-wolf {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.7) !important;
+  background: rgba(45, 15, 25, 0.95);
+  animation: pulseTarget 1.5s infinite;
+}
+
+@keyframes pulseTarget {
+  0%, 100% { transform: translate3d(-50%, -50%, 0) scale(1); }
+  50% { transform: translate3d(-50%, -50%, 0) scale(1.06); }
+}
+
+.table-touch-node.targeted-shield {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.7) !important;
+  background: rgba(45, 35, 15, 0.95);
+}
+
+.table-touch-node.targeted-heal {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.85) !important;
+  background: rgba(15, 45, 30, 0.95);
+  animation: pulseTarget 1.5s infinite;
+}
+
+.table-touch-node.targeted-poison {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 24px rgba(236, 72, 153, 0.85) !important;
+  background: rgba(45, 15, 35, 0.95);
+  animation: pulseTarget 1.5s infinite;
+}
+
+.table-touch-node.targeted-silence {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.7) !important;
+  background: rgba(30, 20, 50, 0.95);
+}
+
+.table-touch-node.targeted-hunter {
+  border-color: #f97316 !important;
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.8) !important;
+  background: rgba(45, 25, 10, 0.95);
+}
+
+.table-touch-node.targeted-mirror {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.8) !important;
+  background: rgba(45, 15, 35, 0.95);
+}
+
+.table-touch-node.targeted-cupid {
+  border-color: #f43f5e !important;
+  box-shadow: 0 0 22px rgba(244, 63, 94, 0.85) !important;
+  background: rgba(55, 15, 30, 0.95);
+  animation: pulseCupid 1.3s infinite alternate ease-in-out;
+}
+
+.table-touch-node.targeted-seer-wolf {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 22px rgba(16, 185, 129, 0.85) !important;
+  background: rgba(15, 45, 30, 0.95);
+  animation: pulseTarget 1.5s infinite;
+}
+
+.table-touch-node.targeted-seer-town {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 22px rgba(239, 68, 68, 0.85) !important;
+  background: rgba(45, 15, 25, 0.95);
+  animation: pulseTarget 1.5s infinite;
+}
+
+@keyframes pulseCupid {
+  0% { transform: translate3d(-50%, -50%, 0) scale(1); }
+  100% { transform: translate3d(-50%, -50%, 0) scale(1.06); }
+}
+
+.table-touch-node.holding {
+  transform: translate3d(-50%, -50%, 0) scale(0.92) !important;
+  border-color: #c084fc !important;
+  box-shadow: 0 0 25px rgba(192, 132, 252, 0.9) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* ACTIVE TURN ACTOR - GLIDES TO MIDDLE OF TABLE */
+.table-touch-node.is-turn-actor {
+  z-index: 25 !important;
+  transform: translate3d(-50%, -50%, 0) scale(1.16);
+  border-width: 2.5px !important;
+  border-color: #38bdf8 !important;
+  background: radial-gradient(circle, rgba(15, 35, 75, 0.98) 0%, rgba(8, 14, 28, 0.99) 100%) !important;
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.85),
+              0 0 50px rgba(147, 51, 234, 0.45),
+              inset 0 0 12px rgba(56, 189, 248, 0.35) !important;
+  animation: activeTurnLevitate 2.4s ease-in-out infinite alternate !important;
+}
+
+@keyframes activeTurnLevitate {
+  0% {
+    transform: translate3d(-50%, -50%, 0) scale(1.14);
+  }
+  100% {
+    transform: translate3d(-50%, -55%, 0) scale(1.20);
+  }
+}
+
+/* Specific Role Theme Glows when Active Turn */
+.table-touch-node.is-turn-actor.actor-werewolf {
+  border-color: #ef4444 !important;
+  background: radial-gradient(circle, rgba(75, 10, 15, 0.98) 0%, rgba(18, 8, 12, 0.99) 100%) !important;
+  box-shadow: 0 0 32px rgba(239, 68, 68, 0.95),
+              0 0 65px rgba(220, 38, 38, 0.5),
+              inset 0 0 16px rgba(239, 68, 68, 0.4) !important;
+}
+
+.table-touch-node.is-turn-actor.actor-seer {
+  border-color: #38bdf8 !important;
+  background: radial-gradient(circle, rgba(12, 74, 110, 0.98) 0%, rgba(8, 15, 26, 0.99) 100%) !important;
+  box-shadow: 0 0 32px rgba(56, 189, 248, 0.95),
+              0 0 65px rgba(14, 165, 233, 0.5),
+              inset 0 0 16px rgba(56, 189, 248, 0.4) !important;
+}
+
+.table-touch-node.is-turn-actor.actor-witch {
+  border-color: #10b981 !important;
+  background: radial-gradient(circle, rgba(6, 78, 59, 0.98) 0%, rgba(8, 20, 16, 0.99) 100%) !important;
+  box-shadow: 0 0 32px rgba(16, 185, 129, 0.95),
+              0 0 65px rgba(168, 85, 247, 0.5),
+              inset 0 0 16px rgba(16, 185, 129, 0.4) !important;
+}
+
+.table-touch-node.is-turn-actor.actor-bodyguard {
+  border-color: #f59e0b !important;
+  background: radial-gradient(circle, rgba(78, 45, 10, 0.98) 0%, rgba(20, 12, 6, 0.99) 100%) !important;
+  box-shadow: 0 0 32px rgba(245, 158, 11, 0.95),
+              0 0 65px rgba(217, 119, 6, 0.5),
+              inset 0 0 16px rgba(245, 158, 11, 0.4) !important;
+}
+
+.table-touch-node.is-turn-actor.actor-cupid {
+  border-color: #f43f5e !important;
+  background: radial-gradient(circle, rgba(80, 10, 30, 0.98) 0%, rgba(20, 6, 12, 0.99) 100%) !important;
+  box-shadow: 0 0 32px rgba(244, 63, 94, 0.95),
+              0 0 65px rgba(236, 72, 153, 0.5),
+              inset 0 0 16px rgba(244, 63, 94, 0.4) !important;
+}
+
+.table-touch-node.is-turn-actor.actor-hunter {
+  border-color: #f97316 !important;
+  box-shadow: 0 0 30px rgba(249, 115, 22, 0.9), 0 0 60px rgba(234, 88, 12, 0.45) !important;
+}
+
+.table-touch-node.is-turn-actor.actor-mason {
+  border-color: #a855f7 !important;
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.9), 0 0 60px rgba(147, 51, 234, 0.45) !important;
+}
+
+.table-touch-node.is-turn-actor.actor-spellcaster {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.9), 0 0 60px rgba(124, 58, 237, 0.45) !important;
+}
+
+.table-touch-node.is-turn-actor.actor-doppelganger {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 30px rgba(236, 72, 153, 0.9), 0 0 60px rgba(219, 39, 119, 0.45) !important;
+}
+
+/* Dim sleeping ALIVE players on perimeter during night active turns */
+.touch-table-wrapper.has-active-turn-actor .table-touch-node:not(.is-turn-actor):not(.dead) {
+  opacity: 0.68;
+  filter: brightness(0.85);
+}
+
+.touch-table-wrapper.has-active-turn-actor .table-touch-node:not(.is-turn-actor):not(.dead):hover,
+.touch-table-wrapper.has-active-turn-actor .table-touch-node:not(.is-turn-actor):not(.dead):active {
+  opacity: 1;
+  filter: brightness(1);
+}
+
+/* Turn Indicator Badge on Active Actor Card */
+.node-turn-indicator-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #eab308, #ef4444);
+  color: #ffffff;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 12px rgba(234, 179, 8, 0.7);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 15;
+  animation: turnBadgePulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes turnBadgePulse {
+  0% { transform: translateX(-50%) scale(0.96); opacity: 0.92; }
+  100% { transform: translateX(-50%) scale(1.04); opacity: 1; }
+}
+
+.table-touch-node.active-role-actor {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.5) !important;
+}
+
+.table-touch-node.role-selected {
+  border-color: #c084fc !important;
+  box-shadow: 0 0 18px rgba(192, 132, 252, 0.8) !important;
+}
+
+.node-role-label.role-unknown {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.85;
+}
+
+/* DEAD PLAYERS: strictly keep faded, grayscale, and muted across all active turns and states */
+.table-touch-node.dead:not(.doppel-dead-candidate),
+.touch-table-wrapper.has-active-turn-actor .table-touch-node.dead:not(.doppel-dead-candidate),
+.touch-table-wrapper.has-active-turn-actor .table-touch-node.dead:not(.doppel-dead-candidate):hover,
+.touch-table-wrapper.has-active-turn-actor .table-touch-node.dead:not(.doppel-dead-candidate):active,
+.table-touch-node.dead:not(.doppel-dead-candidate):hover,
+.table-touch-node.dead:not(.doppel-dead-candidate):active {
+  opacity: 0.35 !important;
+  filter: grayscale(100%) contrast(0.8) brightness(0.65) !important;
+  border-color: rgba(100, 116, 139, 0.25) !important;
+  box-shadow: none !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+  cursor: default;
+}
+
+.table-touch-node.dead:not(.doppel-dead-candidate) .node-avatar {
+  border-color: rgba(100, 116, 139, 0.3) !important;
+  filter: grayscale(100%) brightness(0.65) !important;
+}
+
+.table-touch-node.dead:not(.doppel-dead-candidate) .node-seat-name {
+  text-decoration: line-through;
+  opacity: 0.65;
+  color: #94a3b8;
+}
+
+.table-touch-node.dead:not(.doppel-dead-candidate) .node-role-label {
+  opacity: 0.55;
+  color: #64748b;
+}
+
+.table-touch-node.dead:not(.doppel-dead-candidate) .node-seat-badge {
+  background: rgba(51, 65, 85, 0.6);
+  color: #94a3b8;
+  border-color: rgba(100, 116, 139, 0.3);
+}
+
+.table-touch-node.dead.holding {
+  transform: translate3d(-50%, -50%, 0) scale(0.96) !important;
+  opacity: 0.55 !important;
+}
+
+.node-avatar-wrapper {
+  position: relative;
+  width: 58px;
+  height: 58px;
+}
+
+.node-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+}
+
+.node-status-overlay {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 0.85rem;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.8));
+}
+
+/* 💘 Always-visible lover badge — bottom-left */
+.node-lover-badge {
+  position: absolute;
+  bottom: -4px;
+  left: -4px;
+  font-size: 0.78rem;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.9));
+  line-height: 1;
+}
+
+/* 👑 Always-visible mayor badge — top-left */
+.node-mayor-badge {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  font-size: 0.78rem;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.9));
+  line-height: 1;
+}
+
+@keyframes votePop {
+  0% { transform: translateX(-50%) scale(0.6); opacity: 0.5; }
+  60% { transform: translateX(-50%) scale(1.3); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+.node-vote-badge {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #f59e0b;
+  color: #000;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  transition: all 0.15s;
+  user-select: none;
+  z-index: 10;
+  animation: votePop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+}
+
+.node-vote-badge:hover,
+.node-vote-badge:active {
+  background: #ef4444;
+  color: white;
+  transform: translateX(-50%) scale(1.15);
+}
+
+.vote-minus-symbol {
+  font-size: 0.82rem;
+  font-weight: 900;
+  margin-left: 1px;
+}
+
+.node-seat-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 104px;
+}
+
+.node-role-label {
+  font-size: 0.76rem;
+  color: #c084fc;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 104px;
+}
+
+/* Prominent Seat Number Badge on Player Cards */
+.node-seat-badge {
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  background: linear-gradient(135deg, #6b21a8, #9333ea);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.05rem 0.36rem;
+  border-radius: var(--radius-full);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7), 0 0 10px rgba(168, 85, 247, 0.5);
+  line-height: 1.2;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.node-seat-num-inline {
+  color: #c084fc;
+  font-size: 0.76rem;
+  font-weight: 800;
+  margin-right: 2px;
+  opacity: 0.9;
+}

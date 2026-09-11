@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Werewolf Moderator - Touch Table</title>
+  <meta name="description" content="Mobile-first werewolf moderator assistant with direct tap-on-table skill execution and physical card support.">
+  <link rel="stylesheet" href="src/styles/index.css">
+</head>
+<body>
+
+  <!-- Win Announcement Modal Backdrop -->
+  <div id="win-overlay" class="win-overlay-backdrop">
+    <div class="win-modal-card">
+      <div id="win-trophy" class="win-trophy-icon">🏆</div>
+      <h2 id="win-title" class="win-title">🎉 Village Wins!</h2>
+      <p id="win-desc" class="win-desc"></p>
+
+      <!-- Revealed Roster Summary -->
+      <div id="win-roster-summary" class="win-roster-summary">
+        <!-- Injected dynamically -->
+      </div>
+
+      <!-- Auto-return countdown -->
+      <div id="win-countdown-bar" class="win-countdown-bar">
+        Auto-returning to Lobby in <strong id="win-countdown-num">6</strong>s...
+      </div>
+
+      <!-- Actions -->
+      <div class="win-actions-row">
+        <button class="btn btn-primary" onclick="returnToLobbyFromGameOver()">
+          🏠 Return to Lobby Now
+        </button>
+        <button class="btn btn-outline" onclick="stayAndViewTable()">
+          👀 Review Board
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-container">
+
+    <!-- ====================================================================
+         SCREEN 1: LOBBY SCREEN (SETUP PLAYERS & ROLE DECK)
+         ==================================================================== -->
+    <section id="view-lobby" class="view-screen active">
+      <div class="lobby-header">
+        <h1 class="lobby-title">🐺 Werewolf Lobby</h1>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">Setup players and select roles in play</p>
+      </div>
+
+      <!-- Card 1: Custom Players Roster -->
+      <div class="lobby-card">
+        <div class="lobby-card-header">
+          <div class="lobby-card-title">
+            <span>👥</span> Players Roster
+          </div>
+          <span id="lobby-player-count-badge" class="lobby-badge">0 Players</span>
+        </div>
+
+        <div class="player-input-bar">
+          <input type="text" id="lobby-player-input" class="input-field" placeholder="Type player name and press Enter..." onkeydown="if(event.key==='Enter') addLobbyPlayer()">
+          <button class="btn btn-primary" onclick="addLobbyPlayer()">+ Add</button>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <input type="text" id="lobby-batch-input" class="input-field" placeholder="Or paste comma-separated names (e.g. John, Sarah, Mike, Lisa)..." style="font-size: 0.85rem;">
+          <button class="btn btn-outline" onclick="addLobbyBatchPlayers()" style="white-space: nowrap;">Batch Add</button>
+        </div>
+
+        <div id="lobby-players-list" class="lobby-players-grid">
+          <div id="lobby-empty-hint" style="color: var(--text-dim); font-size: 0.85rem; padding: 0.5rem 0;">No players added yet. Add player names above!</div>
+        </div>
+      </div>
+
+      <!-- Card 2: Role Deck Builder -->
+      <div class="lobby-card">
+        <div class="lobby-card-header">
+          <div class="lobby-card-title">
+            <span>🃏</span> Role Deck in Play
+          </div>
+          <span id="lobby-deck-count-badge" class="lobby-badge">0 / 0 Roles</span>
+        </div>
+
+        <!-- Quick Presets -->
+        <div class="preset-pills-row">
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">PRESETS:</span>
+          <button class="preset-pill" onclick="loadLobbyPreset(6)">6 Players</button>
+          <button class="preset-pill" onclick="loadLobbyPreset(8)">8 Players</button>
+          <button class="preset-pill" onclick="loadLobbyPreset(10)">10 Players</button>
+          <button class="preset-pill" onclick="loadLobbyPreset(12)">12 Players</button>
+          <button class="preset-pill" onclick="clearRoleDeck()" style="color: #fca5a5;">Clear</button>
+        </div>
+
+        <!-- Role Grid with +/- counters -->
+        <div id="role-deck-grid" class="role-deck-grid">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- Deck Status Summary -->
+        <div class="deck-status-bar" id="deck-status-bar">
+          <div id="deck-status-text">Select roles to match your player count.</div>
+          <button id="auto-fill-btn" class="btn btn-outline" style="display: none; font-size: 0.75rem; padding: 0.2rem 0.5rem;" onclick="autoFillVillagers()">
+            + Fill with Villagers
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 3: Game Options -->
+      <div class="lobby-card">
+        <div class="lobby-card-header">
+          <div class="lobby-card-title">
+            <span>⚙️</span> Rules & Discussion Timer
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Day Debate Timer</label>
+            <select id="lobby-timer-select" class="input-field" style="width: auto; padding: 0.4rem 0.75rem;">
+              <option value="60">1 Minute</option>
+              <option value="90" selected>90 Seconds</option>
+              <option value="120">2 Minutes</option>
+              <option value="180">3 Minutes</option>
+              <option value="300">5 Minutes</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Sound FX</label>
+            <button id="lobby-sound-btn" class="btn btn-outline" onclick="toggleSound()">🔊 Sound On</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Start Game CTA Button -->
+      <div class="lobby-start-actions">
+        <button class="btn btn-primary btn-large" onclick="startGameDirectNight1()">
+          🚀 Start Game (Night 1)
+        </button>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SCREEN 2: GAME SCREEN (TOUCH TABLE FIRST - NO COMBOBOXES!)
+         ==================================================================== -->
+    <section id="view-game" class="view-screen">
+      <!-- Game Top Bar -->
+      <div class="game-top-bar">
+        <div class="game-phase-indicator">
+          <span id="game-phase-pill" class="game-phase-pill night">🌙 Night 1</span>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); display: flex; gap: 0.4rem;">
+            <span>🐺 <strong id="game-stat-wolves" style="color: #f87171;">0</strong></span>
+            <span>🧑 <strong id="game-stat-town" style="color: #38bdf8;">0</strong></span>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+          <div class="game-timer-pill">
+            <span id="game-timer-display">01:30</span>
+            <button id="game-timer-toggle" class="btn btn-primary" style="padding: 0.15rem 0.5rem; font-size: 0.75rem;" onclick="toggleTimer()">▶</button>
+            <button class="btn btn-outline" style="padding: 0.15rem 0.4rem; font-size: 0.75rem;" onclick="resetTimer()">↺</button>
+          </div>
+          <button class="btn btn-warning" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="confirmRestartGame()" title="Restart Game if mistake made">
+            ↺ Restart
+          </button>
+          <button class="btn btn-outline btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="confirmExitToLobby()" title="Exit to Lobby">
+            🏠 Exit
+          </button>
+        </div>
+      </div>
+
+      <!-- NIGHT PHASE TOUCH CALLER (Streamlined Compact Bar) -->
+      <div id="night-caller-box" class="touch-caller-strip">
+        <div class="caller-top-strip">
+          <div class="caller-role-title">
+            <span id="caller-role-icon">🐺</span>
+            <span id="caller-role-name">Werewolves</span>
+            <div id="caller-step-dots" class="caller-step-dots"></div>
+          </div>
+          <div class="caller-actions-inline">
+            <button id="caller-prev-btn" class="btn btn-outline caller-mini-btn" onclick="prevWizardStep()">◀ Back</button>
+            <button id="caller-next-btn" class="btn btn-primary caller-mini-btn" onclick="nextWizardStep()">Next ▶</button>
+            <button id="caller-resolve-btn" class="btn btn-success caller-mini-btn" style="display: none;" onclick="resolveNightAndStartDay()">☀️ Sunrise</button>
+          </div>
+        </div>
+
+        <!-- Mode Toggle Pills & Witch Controls -->
+        <div class="caller-bottom-strip">
+          <div id="caller-mode-pills" class="caller-mode-pills"></div>
+          <div id="caller-witch-controls" style="display: none; gap: 0.35rem; align-items: center;">
+            <button id="witch-heal-btn" class="btn btn-outline btn-success caller-mini-btn" onclick="toggleWitchHealTouch()">💚 Heal</button>
+            <button id="witch-poison-btn" class="btn btn-outline btn-danger caller-mini-btn" onclick="armWitchPoisonTouch()">🧪 Poison</button>
+          </div>
+          <div id="caller-target-badge" class="caller-selected-badge" style="display: none;">
+            <span id="caller-target-name">None</span>
+          </div>
+          <div id="caller-instruction-text" style="display: none;"></div>
+          <div id="caller-spoken-text" style="display: none;"></div>
+        </div>
+      </div>
+
+      <!-- DAY CONTROLS BAR (Shown when phase is DAY) -->
+      <div id="day-controls-bar" class="day-controls-bar" style="display: none;">
+        <div>
+          <div style="font-weight: 700; color: #fbbf24; font-size: 0.95rem;">☀️ Day Discussion & Lynch</div>
+          <div id="day-morning-recap" style="font-size: 0.8rem; color: #fca5a5;">Morning report: Nobody died</div>
+          <div id="day-vote-hint" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">👉 Tap player for +1 vote. Tap vote badge for −1 vote.</div>
+        </div>
+        <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+          <button id="day-autofill-btn" class="btn btn-outline" style="display: none; font-size: 0.75rem; padding: 0.35rem 0.55rem; color: #c084fc; border-color: rgba(168, 85, 247, 0.4);" onclick="manualTriggerAutoFill()" title="Auto-fill remaining unknown players">
+            ⚡ Auto-Fill
+          </button>
+          <button id="day-reset-votes-btn" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.55rem;" onclick="resetAllVotes()" title="Reset all player votes to 0">
+            ↺ Reset Votes
+          </button>
+          <button id="day-lynch-btn" class="btn btn-danger" style="font-size: 0.8rem; padding: 0.35rem 0.7rem;" onclick="executeCurrentLynchLeader()" disabled>
+            💀 Lynch
+          </button>
+          <button class="btn btn-primary" style="font-size: 0.8rem; padding: 0.35rem 0.7rem;" onclick="startNightPhase()">
+            🌙 Sleep (Night)
+          </button>
+        </div>
+      </div>
+
+      <!-- Silenced Day Banner (If Spellcaster silenced someone) -->
+      <div id="day-silenced-banner" class="silenced-banner" style="display: none;">
+        <span>🤐</span> <span id="day-silenced-text">Player is silenced today!</span>
+      </div>
+
+      <!-- TOUCH-FRIENDLY RESPONSIVE TABLE TOOLBAR -->
+      <div class="table-toolbar">
+        <div class="table-toolbar-hint">
+          💡 <em>Hold card to edit role/status</em>
+        </div>
+        <div class="table-toolbar-actions">
+          <button id="table-autofill-btn" class="btn btn-outline table-tool-btn" style="color: #c084fc; border-color: rgba(168, 85, 247, 0.5);" onclick="manualTriggerAutoFill()" title="Auto-fill remaining unknown players">
+            ⚡ Auto-Fill Roles
+          </button>
+          <button id="table-expand-btn" class="btn btn-outline table-tool-btn" onclick="toggleTableExpand()" title="Toggle expanded table view">
+            ⛶ Expand Table
+          </button>
+        </div>
+      </div>
+
+      <!-- TOUCH-FRIENDLY RESPONSIVE CIRCULAR TABLE (Touch center hub to change Day/Night!) -->
+      <div id="touch-table" class="touch-table-wrapper phase-night">
+        <!-- Animated Table Ambient Background (Sunrise vs Night) -->
+        <div class="table-ambient-bg" id="table-ambient-bg" aria-hidden="true">
+          <!-- Night Sky Layer -->
+          <div class="ambient-layer ambient-night">
+            <div class="night-sky-base"></div>
+            <div class="night-stars-layer-1"></div>
+            <div class="night-stars-layer-2"></div>
+            <div class="night-nebula-glow"></div>
+            <div class="night-moonlight-glow"></div>
+          </div>
+          <!-- Sunrise / Day Sky Layer -->
+          <div class="ambient-layer ambient-sunrise">
+            <div class="sunrise-sky-base"></div>
+            <div class="sunrise-sunbeams"></div>
+            <div class="sunrise-sun-orb"></div>
+            <div class="sunrise-dawn-glow"></div>
+            <div class="sunrise-particles"></div>
+          </div>
+        </div>
+
+        <div class="table-center-hub" id="table-center-hub" onclick="handleCenterHubTap()" title="Touch to change Day / Night">
+          <!-- Default Center Hub Display -->
+          <div id="table-hub-default-content" class="table-hub-default-content">
+            <div id="table-hub-icon" class="table-center-icon">🌙</div>
+            <div id="table-hub-phase" class="table-center-phase">Night 1</div>
+            <div id="table-hub-sub" class="table-center-sub">Tap to Switch</div>
+          </div>
+
+          <!-- Witch Turn: Clean & Simple Two Circle Buttons -->
+          <div id="table-hub-witch-content" class="table-hub-witch" style="display: none;">
+            <div class="witch-potions-row">
+              <button id="witch-hub-heal-btn" class="witch-hub-btn heal ready" onclick="handleWitchPotionBtnTap('heal', event)" type="button" title="Heal Potion">
+                <span class="witch-btn-icon">💚</span>
+                <span id="witch-hub-heal-badge" class="witch-circle-badge" style="display: none;">✓</span>
+                <span id="witch-hub-heal-title" style="display: none;">Heal Potion</span>
+                <span id="witch-hub-heal-desc" style="display: none;">Ready</span>
+              </button>
+              <button id="witch-hub-poison-btn" class="witch-hub-btn poison ready" onclick="handleWitchPotionBtnTap('poison', event)" type="button" title="Poison Potion">
+                <span class="witch-btn-icon">🧪</span>
+                <span id="witch-hub-poison-badge" class="witch-circle-badge" style="display: none;">☠️</span>
+                <span id="witch-hub-poison-title" style="display: none;">Poison Potion</span>
+                <span id="witch-hub-poison-desc" style="display: none;">Ready</span>
+              </button>
+            </div>
+            <div id="witch-hub-victim" style="display: none;"></div>
+            <div id="witch-hub-instruction" style="display: none;"></div>
+            <button id="witch-hub-done-btn" style="display: none;" onclick="nextWizardStep(); event.stopPropagation();" type="button"></button>
+          </div>
+        </div>
+        <!-- Radial Touch Player Nodes injected dynamically -->
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SCREEN 3: LOG & ROLES SCREEN
+         ==================================================================== -->
+    <section id="view-log-roles" class="view-screen">
+      <div class="log-roles-tabs">
+        <button id="subtab-log" class="btn btn-primary" style="flex: 1;" onclick="switchLogSubtab('log')">📜 Game Event Log</button>
+        <button id="subtab-roles" class="btn btn-outline" style="flex: 1;" onclick="switchLogSubtab('roles')">🎭 Roles Guide</button>
+      </div>
+
+      <!-- Subtab 1: History Log -->
+      <div id="subtab-content-log">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Chronological event history</span>
+          <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" onclick="clearHistoryLog()">Clear</button>
+        </div>
+        <div id="history-timeline-list" class="history-timeline">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Subtab 2: Roles Guide -->
+      <div id="subtab-content-roles" style="display: none;">
+        <div id="roles-guide-list" class="roles-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ====================================================================
+       TOUCH ACTION SHEET WITH 1-TAP ROLE QUICK PICKER
+       ==================================================================== -->
+  <div id="player-action-sheet-backdrop" class="action-sheet-backdrop" onclick="if(event.target === this) closePlayerActionSheet()">
+    <div class="action-sheet">
+      <div class="action-sheet-header">
+        <div style="flex: 1; margin-right: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span id="sheet-player-seat" style="font-size: 1.15rem; font-weight: 800; color: #a855f7;">#1</span>
+            <input type="text" id="sheet-player-name-input" class="input-field" style="font-size: 1.05rem; font-weight: 800; padding: 0.2rem 0.45rem; width: 100%; max-width: 200px;" placeholder="Player Name" onchange="sheetSaveName(this.value)">
+          </div>
+          <span id="sheet-player-role" style="font-size: 0.8rem; color: #c084fc; font-weight: 700; margin-top: 0.2rem; display: block;">Role</span>
+        </div>
+        <button class="btn-outline btn-icon" onclick="closePlayerActionSheet()" style="font-size: 1.2rem; padding: 0.2rem 0.5rem;">✕</button>
+      </div>
+
+      <!-- 1-Tap Quick Role Picker Row -->
+      <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-bottom: 0.25rem;">1-TAP ROLE PICKER:</div>
+      <div id="sheet-role-picker" class="action-sheet-role-picker">
+        <!-- Injected dynamically -->
+      </div>
+
+      <div class="action-sheet-grid">
+        <button id="sheet-toggle-life-btn" class="btn btn-danger" onclick="sheetToggleLife()">💀 Kill / Revive</button>
+        <button id="sheet-toggle-mayor-btn" class="btn btn-outline" onclick="sheetToggleMayor()">👑 Make Mayor</button>
+        <button id="sheet-toggle-lover-btn" class="btn btn-outline" onclick="sheetToggleLover()">💘 Toggle Lover</button>
+        <button class="btn btn-outline" onclick="sheetSeerReveal()">👁️ View Alignment</button>
+      </div>
+
+      <div id="sheet-doppelganger-row" style="display: none; margin-top: 0.4rem;">
+        <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem; border-color: #ec4899; color: #f472b6;" onclick="sheetSetDoppelgangerTargetPrompt()">
+          🎭 Take Role of Deceased Player
+        </button>
+      </div>
+
+      <div style="margin-top: 0.35rem;">
+        <input type="text" id="sheet-player-notes" class="input-field" placeholder="Notes (claims, visits, suspect)..." oninput="sheetSaveNotes(this.value)">
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       HUNTER REVENGE ELIMINATION MODAL
+       ==================================================================== -->
+  <div id="hunter-revenge-modal" class="win-overlay-backdrop">
+    <div class="win-modal-card" style="border-color: #ef4444; box-shadow: 0 0 50px rgba(239, 68, 68, 0.4), inset 0 0 20px rgba(239, 68, 68, 0.2); max-width: 440px;">
+      <div class="win-trophy-icon" style="filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.6));">🏹</div>
+      <div class="win-title" style="color: #f87171;">Hunter Eliminated!</div>
+      <div id="hunter-revenge-desc" class="win-desc" style="font-size: 0.88rem; margin-bottom: 0.75rem;">
+        Hunter was eliminated and may take another player down with them!
+      </div>
+
+      <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; text-align: left;">
+        Choose player to eliminate (or Pass):
+      </div>
+
+      <div id="hunter-revenge-target-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; max-height: 220px; overflow-y: auto; margin-bottom: 1rem; padding: 0.2rem;">
+        <!-- Dynamically injected alive player buttons -->
+      </div>
+
+      <div style="display: flex; gap: 0.5rem;">
+        <button class="btn btn-outline" style="flex: 1; border-color: var(--border-medium); font-weight: 700;" onclick="passHunterRevenge()">
+          ⏭️ Pass / Don't Shoot
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       3-TAB BOTTOM NAVIGATION BAR
+       ==================================================================== -->
+  <nav class="bottom-nav-3" id="bottom-nav-3">
+    <button class="bottom-nav-tab active" id="tab-btn-lobby" onclick="switchNavTab('lobby')">
+      <span class="tab-icon">🏠</span>
+      <span class="tab-label">Lobby</span>
+    </button>
+    <button class="bottom-nav-tab" id="tab-btn-game" onclick="switchNavTab('game')">
+      <span class="tab-icon">🐺</span>
+      <span class="tab-label">Game Table</span>
+    </button>
+    <button class="bottom-nav-tab" id="tab-btn-log-roles" onclick="switchNavTab('log-roles')">
+      <span class="tab-icon">📜</span>
+      <span class="tab-label">Log & Roles</span>
+    </button>
+  </nav>
+
+  <!-- FLOATING TOAST NOTIFICATIONS -->
+  <div id="game-toast-container"></div>
+
+  <!-- ====================================================================
+       CUSTOM THEMED ALERT & CONFIRM MODAL DIALOG
+       ==================================================================== -->
+  <div id="custom-dialog-overlay" class="custom-dialog-backdrop" style="display: none;" onclick="handleDialogBackdropClick(event)">
+    <div class="custom-dialog-card" role="dialog" aria-modal="true">
+      <div id="custom-dialog-icon" class="custom-dialog-icon">🐺</div>
+      <h3 id="custom-dialog-title" class="custom-dialog-title">Notice</h3>
+      <div id="custom-dialog-body" class="custom-dialog-body">Message text here</div>
+      <div id="custom-dialog-actions" class="custom-dialog-actions">
+        <button id="custom-dialog-cancel-btn" class="btn btn-outline custom-dialog-btn" style="display: none;" onclick="handleCustomDialogResolve(false)">Cancel</button>
+        <button id="custom-dialog-confirm-btn" class="btn btn-primary custom-dialog-btn" onclick="handleCustomDialogResolve(true)">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

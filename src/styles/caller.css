@@ -1,0 +1,123 @@
+/* ==========================================================================
+   WEREWOLF MODERATOR - NIGHT CALLER STRIP STYLES
+   ========================================================================== */
+
+/* Touch Caller Strip (Streamlined 2-row compact bar for mobile screens) */
+.touch-caller-strip {
+  background: linear-gradient(145deg, rgba(26, 21, 48, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: var(--radius-md);
+  padding: 0.35rem 0.65rem;
+  margin-bottom: 0.35rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.caller-top-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.caller-role-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+
+.caller-step-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 0.35rem;
+}
+
+.caller-actions-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.caller-mini-btn {
+  padding: 0.2rem 0.55rem !important;
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* Bottom Strip: Mode Pills & Witch Action Buttons */
+.caller-bottom-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.caller-mode-pills {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.caller-mode-btn {
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.caller-mode-btn.active {
+  background: rgba(168, 85, 247, 0.3);
+  border-color: #a855f7;
+  color: white;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+}
+
+.caller-selected-badge {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+
+#caller-next-btn.auto-advancing {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.7) !important;
+  border-color: #34d399 !important;
+  animation: pulseAutoAdvance 0.6s infinite alternate ease-in-out;
+}
+
+@keyframes pulseAutoAdvance {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.06); }
+}
+
+.caller-dead-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full);
+  margin-left: 0.35rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}

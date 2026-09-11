@@ -1,0 +1,985 @@
+/**
+ * Circular / Elliptical Touch Table Controller
+ * Calculates perimeter distribution, renders touch nodes, and coordinates node hold & tap actions.
+ */
+import { gameState, uiState } from '../../state/store.js';
+import { getRoleImage, getRoleTargetCount } from '../../state/roles.js';
+import { soundManager } from '../../audio/sound.js';
+import { saveAppState } from '../../state/storage.js';
+import { showCustomAlert } from '../../ui/dialog.js';
+import { showGameToast } from '../../ui/toast.js';
+import { getEvenlySpacedEllipseAngles } from '../../utils/math.js';
+import { openPlayerActionSheet } from '../../ui/modal/action-sheet.js';
+import { previewNightDeaths, handleWitchDirectPlayerTap } from './witch-potions.js';
+import { getActiveNightSteps, setCallerSubMode, cancelAutoAdvance, scheduleAutoAdvance, nextWizardStep, renderNightCaller, isStepRoleDead } from './night-caller.js';
+import { addPlayerVote, renderDayControls } from './day-phase.js';
+import { smartAutoFillRemainingRoles } from './autofill.js';
+
+let tableResizeObserver = null;
+let holdTimeout = null;
+let isHolding = false;
+let holdTriggered = false;
+
+export function toggleTableExpand() {
+  const container = document.getElementById('touch-table');
+  if (!container) return;
+  container.classList.toggle('expanded');
+  const isExp = container.classList.contains('expanded');
+  soundManager.playBeep();
+  renderTouchTable();
+  showGameToast(isExp ? '⛶ Table Expanded' : '🗗 Standard Table View');
+}
+
+export function setupTableResizeObserver() {
+  const container = document.getElementById('touch-table');
+  if (!container || tableResizeObserver) return;
+  if (typeof ResizeObserver !== 'undefined') {
+    let resizeTimer = null;
+    tableResizeObserver = new ResizeObserver(() => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (gameState.inProgress && uiState.activeTab === 'game') {
+          renderTouchTable();
+        }
+      }, 50);
+    });
+    tableResizeObserver.observe(container);
+  }
+}
+
+export function renderTouchTable() {
+  const container = document.getElementById('touch-table');
+  if (!container) return;
+
+  if (typeof globalThis.renderGameTopBar === 'function') {
+    globalThis.renderGameTopBar();
+  }
+
+  setupTableResizeObserver();
+
+  const existingNodes = new Map();
+  container.querySelectorAll('.table-touch-node').forEach(n => {
+    if (n.dataset && n.dataset.playerId) {
+      existingNodes.set(n.dataset.playerId, n);
+    } else {
+      n.remove();
+    }
+  });
+
+  const currentPlayerIds = new Set(gameState.players.map(p => p.id));
+  for (const [id, node] of existingNodes.entries()) {
+    if (!currentPlayerIds.has(id)) {
+      node.remove();
+      existingNodes.delete(id);
+    }
+  }
+
+  const total = gameState.players.length;
+  if (total === 0) return;
+
+  // Dense roster class for scaling when 10+ players
+  if (total >= 10) {
+    container.classList.add('dense-roster');
+  } else {
+    container.classList.remove('dense-roster');
+  }
+
+  // Synchronize phase classes for animated ambient backgrounds (Sunrise vs Night)
+  const isNight = (gameState.phase === 'NIGHT');
+  const nightSteps = isNight ? getActiveNightSteps() : [];
+  const activeNightStep = nightSteps[gameState.wizardStepIndex];
+  const isSunriseStep = (isNight && activeNightStep && activeNightStep.id === 'resolution');
+
+  if (isSunriseStep) {
+    container.classList.remove('phase-night');
+    container.classList.add('phase-day', 'phase-sunrise');
+  } else if (isNight) {
+    container.classList.remove('phase-day', 'phase-sunrise');
+    container.classList.add('phase-night');
+  } else {
+    container.classList.remove('phase-night', 'phase-sunrise');
+    container.classList.add('phase-day');
+  }
+
+  const width = container.clientWidth || 550;
+  const height = container.clientHeight || 480;
+
+  // Responsive node dimensions based on count and width
+  const isMobile = width < 480;
+  let nodeWidth = isMobile ? (total >= 10 ? 70 : 80) : (total > 11 ? 84 : (total > 8 ? 94 : 108));
+  const nodeHeight = isMobile ? (total >= 10 ? 80 : 88) : 102;
+
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  // Safe radius margins to guarantee cards track the outer perimeter without clipping
+  const cardHalfWidth = nodeWidth / 2;
+  const cardHalfHeight = nodeHeight / 2;
+  const paddingX = isMobile ? 8 : 14;
+  const paddingY = isMobile ? 8 : 16;
+  const maxSafeRadiusX = centerX - cardHalfWidth - paddingX;
+  const maxSafeRadiusY = centerY - cardHalfHeight - paddingY;
+
+  // Safe clearance from center hub
+  const hubEl = document.getElementById('table-center-hub');
+  const hubRadius = (hubEl && hubEl.offsetWidth ? hubEl.offsetWidth / 2 : 48);
+  const minSafeRadiusX = hubRadius + cardHalfWidth + 12;
+  const minSafeRadiusY = hubRadius + cardHalfHeight + 12;
+
+  // Independent horizontal & vertical radii matching the table shape
+  const radiusX = Math.max(minSafeRadiusX, maxSafeRadiusX);
+  const radiusY = Math.max(minSafeRadiusY, maxSafeRadiusY);
+
+  // --- Dynamic Center Hub with Status & Emoji ---
+  const hubIcon = document.getElementById('table-hub-icon');
+  const hubPhase = document.getElementById('table-hub-phase');
+  const hubSub = document.getElementById('table-hub-sub');
+
+  if (hubEl && hubIcon && hubPhase && hubSub) {
+    let hubEmoji = '🌙';
+    let hubTitle = `Night ${gameState.currentNight}`;
+    let hubSubtitle = 'Tap to Advance ▶';
+    let hubReady = false;
+    let activeStep = null;
+
+    if (gameState.phase === 'NIGHT') {
+      const activeSteps = getActiveNightSteps();
+      activeStep = activeSteps[gameState.wizardStepIndex];
+
+      if (!activeStep) {
+        hubEmoji = '🌙';
+        hubTitle = `Night ${gameState.currentNight}`;
+        hubSubtitle = 'In Progress';
+      } else if (activeStep.id === 'resolution') {
+        const deaths = previewNightDeaths();
+        hubEmoji = '☀️';
+        hubTitle = 'Sunrise';
+        hubSubtitle = deaths.length > 0 ? `💀 ${deaths.length} Dead • Tap ☀️` : 'Peaceful • Tap ☀️';
+        hubReady = true;
+      } else if (isStepRoleDead(activeStep)) {
+        hubEmoji = '💀';
+        hubTitle = `${activeStep.name} (Dead)`;
+        hubSubtitle = 'Deceased • Tap Next ▶';
+        hubReady = true;
+      } else if (!activeStep.hasSkill) {
+        const holders = gameState.players.filter(p => p.role === activeStep.targetRole);
+        const targetCount = getRoleTargetCount(activeStep.targetRole);
+        hubEmoji = activeStep.icon || '🤝';
+        hubTitle = `${activeStep.targetRole} (${holders.length}/${targetCount})`;
+        if (holders.length >= targetCount) {
+          hubSubtitle = 'Ready! Tap to Next ▶';
+          hubReady = true;
+        } else {
+          hubSubtitle = `Set ${holders.length}/${targetCount}`;
+          hubReady = false;
+        }
+      } else {
+        const holders = gameState.players.filter(p => p.role === activeStep.targetRole);
+        const targetCount = getRoleTargetCount(activeStep.targetRole);
+
+        if (uiState.callerSubMode === 'role') {
+          hubEmoji = activeStep.icon || '🎭';
+          hubTitle = `${activeStep.targetRole} (${holders.length}/${targetCount})`;
+          if (holders.length >= targetCount) {
+            hubSubtitle = 'Ready! Tap Target 🎯';
+            hubReady = true;
+          } else {
+            hubSubtitle = `Set ${holders.length}/${targetCount} Role`;
+            hubReady = false;
+          }
+        } else {
+          if (activeStep.id === 'werewolves') {
+            const victim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget);
+            if (victim) {
+              hubEmoji = '🎯';
+              hubTitle = `#${victim.seat} ${victim.name}`;
+              hubSubtitle = '💀 Target Set! ▶';
+              hubReady = true;
+            } else {
+              hubEmoji = '🐺';
+              hubTitle = 'Wolf Kill';
+              hubSubtitle = 'Tap victim';
+              hubReady = false;
+            }
+          } else if (activeStep.id === 'seer') {
+            const inspected = gameState.players.find(p => p.id === gameState.nightActions.seerTarget);
+            if (inspected) {
+              const isWerewolf = (inspected.role === 'Werewolf' || inspected.role === 'Lycan');
+              hubEmoji = isWerewolf ? '🐺' : '🧑';
+              hubTitle = `#${inspected.seat} ${inspected.name}`;
+              hubSubtitle = isWerewolf ? '🟢 Correct: Wolf! ▶' : '🔴 Wrong: Not Wolf ▶';
+              hubReady = true;
+            } else {
+              hubEmoji = '🔮';
+              hubTitle = 'Seer Check';
+              hubSubtitle = 'Tap player to inspect';
+              hubReady = false;
+            }
+          } else if (activeStep.id === 'bodyguard') {
+            const shielded = gameState.players.find(p => p.id === gameState.nightActions.bodyguardTarget);
+            if (shielded) {
+              hubEmoji = '🛡️';
+              hubTitle = `#${shielded.seat} ${shielded.name}`;
+              hubSubtitle = '🛡️ Protected ▶';
+              hubReady = true;
+            } else {
+              hubEmoji = '🛡️';
+              hubTitle = 'Bodyguard';
+              hubSubtitle = 'Tap to protect';
+              hubReady = false;
+            }
+          } else if (activeStep.id === 'witch') {
+            hubEmoji = '🧪';
+            hubTitle = 'Witch';
+            const victim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget);
+            const isHealed = gameState.nightActions.witchHealed;
+            const poisonVictim = gameState.players.find(p => p.id === gameState.nightActions.witchPoisonTarget);
+
+            if (isHealed && poisonVictim) {
+              hubSubtitle = `💚 Saved & ☠️ #${poisonVictim.seat}`;
+            } else if (isHealed) {
+              hubSubtitle = `💚 #${victim ? victim.seat : ''} Saved ▶`;
+            } else if (poisonVictim) {
+              hubSubtitle = `☠️ #${poisonVictim.seat} Poisoned ▶`;
+            } else if (victim) {
+              hubSubtitle = `Victim: #${victim.seat} ▶`;
+            } else {
+              hubSubtitle = 'Heal or Poison ▶';
+            }
+            hubReady = true;
+          } else if (activeStep.id === 'cupid') {
+            const l1 = gameState.players.find(p => p.id === gameState.nightActions.cupidLover1);
+            const l2 = gameState.players.find(p => p.id === gameState.nightActions.cupidLover2);
+            if (l1 && l2) {
+              hubEmoji = '💘';
+              hubTitle = `#${l1.seat} & #${l2.seat}`;
+              hubSubtitle = '💘 Lovers Bound! ▶';
+              hubReady = true;
+            } else if (l1) {
+              hubEmoji = '🏹';
+              hubTitle = 'Lovers (1/2)';
+              hubSubtitle = 'Tap 2nd player';
+              hubReady = false;
+            } else {
+              hubEmoji = '🏹';
+              hubTitle = 'Cupid';
+              hubSubtitle = 'Tap 2 lovers';
+              hubReady = false;
+            }
+          } else if (activeStep.id === 'spellcaster') {
+            const silenced = gameState.players.find(p => p.id === gameState.nightActions.spellcasterTarget);
+            if (silenced) {
+              hubEmoji = '🤐';
+              hubTitle = `#${silenced.seat} ${silenced.name}`;
+              hubSubtitle = '🤐 Silenced ▶';
+              hubReady = true;
+            } else {
+              hubEmoji = '✨';
+              hubTitle = 'Spellcaster';
+              hubSubtitle = 'Tap to silence';
+              hubReady = false;
+            }
+          } else if (activeStep.id === 'doppelganger') {
+            const copyTarget = gameState.players.find(p => p.id === gameState.nightActions.doppelgangerTarget);
+            if (copyTarget) {
+              hubEmoji = '🎭';
+              hubTitle = `#${copyTarget.seat} (${copyTarget.role})`;
+              hubSubtitle = 'Transformed! ▶';
+              hubReady = true;
+            } else {
+              hubEmoji = '🎭';
+              hubTitle = 'Doppelganger';
+              hubSubtitle = 'Tap dead player';
+              hubReady = false;
+            }
+          } else {
+            hubEmoji = activeStep.icon || '🌙';
+            hubTitle = activeStep.name || 'Night Action';
+            hubSubtitle = 'Tap to Advance ▶';
+            hubReady = true;
+          }
+        }
+      }
+    } else {
+      // DAY PHASE
+      const alive = gameState.players.filter(p => p.status === 'alive');
+      let maxVotes = 0;
+      alive.forEach(p => {
+        if ((p.votes || 0) > maxVotes) maxVotes = p.votes;
+      });
+      const leaders = maxVotes > 0 ? alive.filter(p => (p.votes || 0) === maxVotes) : [];
+
+      if (leaders.length === 1 && maxVotes > 0) {
+        hubEmoji = '💀';
+        hubTitle = `#${leaders[0].seat} ${leaders[0].name}`;
+        hubSubtitle = `${maxVotes} Vote${maxVotes > 1 ? 's' : ''} (Lynch)`;
+        hubReady = true;
+      } else if (leaders.length > 1 && maxVotes > 0) {
+        hubEmoji = '⚖️';
+        hubTitle = `Tied (${maxVotes}v)`;
+        hubSubtitle = 'Break Tie or Sleep';
+        hubReady = false;
+      } else {
+        hubEmoji = '☀️';
+        hubTitle = `Day ${gameState.currentDay}`;
+        hubSubtitle = 'Tap for Night 🌙';
+        hubReady = false;
+      }
+    }
+
+    hubIcon.textContent = hubEmoji;
+    hubPhase.textContent = hubTitle;
+    hubSub.textContent = hubSubtitle;
+
+    if (hubReady) {
+      hubEl.classList.add('hub-ready');
+    } else {
+      hubEl.classList.remove('hub-ready');
+    }
+
+    if (activeStep && isStepRoleDead(activeStep)) {
+      hubEl.classList.add('hub-role-dead');
+    } else {
+      hubEl.classList.remove('hub-role-dead');
+    }
+
+    // --- Witch 2-Potion Interactive Middle of Table Display ---
+    const defaultHubContent = document.getElementById('table-hub-default-content');
+    const witchHubContent = document.getElementById('table-hub-witch-content');
+    const isWitchStep = (gameState.phase === 'NIGHT' && activeStep && activeStep.id === 'witch' && uiState.callerSubMode === 'target' && !isStepRoleDead(activeStep));
+
+    if (isWitchStep && witchHubContent) {
+      hubEl.classList.add('witch-turn-hub');
+      if (defaultHubContent) defaultHubContent.style.display = 'none';
+      witchHubContent.style.display = 'flex';
+
+      const victim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget);
+      const victimEl = document.getElementById('witch-hub-victim');
+      if (victimEl) {
+        victimEl.style.display = 'none';
+        if (victim) {
+          victimEl.textContent = `🐺 Victim: #${victim.seat} ${victim.name}`;
+        } else {
+          victimEl.textContent = 'Peaceful Night (No Wolf Victim)';
+        }
+      }
+
+      // Heal circle button state
+      const healBtn = document.getElementById('witch-hub-heal-btn');
+      const healBadge = document.getElementById('witch-hub-heal-badge');
+      const healTitle = document.getElementById('witch-hub-heal-title');
+      const healDesc = document.getElementById('witch-hub-heal-desc');
+      if (healBtn) {
+        if (!gameState.potions.witchHealAvailable && !gameState.nightActions.witchHealed) {
+          healBtn.className = 'witch-hub-btn heal disabled';
+          healBtn.title = 'Heal Potion (Used)';
+          if (healBadge) healBadge.style.display = 'none';
+          if (healTitle) healTitle.textContent = 'Heal Potion';
+          if (healDesc) healDesc.textContent = 'Used (0 Left)';
+        } else if (uiState.witchSelectionMode === 'heal') {
+          healBtn.className = 'witch-hub-btn heal selecting';
+          healBtn.title = 'Healing... Tap player on table';
+          if (healBadge) healBadge.style.display = 'none';
+          if (healTitle) healTitle.textContent = 'Healing...';
+          if (healDesc) healDesc.textContent = '👉 Tap Player';
+        } else if (gameState.nightActions.witchHealed) {
+          healBtn.className = 'witch-hub-btn heal active-used';
+          const hPlayer = gameState.players.find(p => p.id === (gameState.nightActions.witchHealTarget || gameState.nightActions.wolfTarget));
+          healBtn.title = `Saved #${hPlayer ? hPlayer.seat + ' ' + hPlayer.name : 'Victim'} (Tap to Cancel)`;
+          if (healBadge) {
+            healBadge.style.display = 'flex';
+            healBadge.textContent = '✓';
+          }
+          if (healTitle) healTitle.textContent = `💚 Saved #${hPlayer ? hPlayer.seat : ''}`;
+          if (healDesc) healDesc.textContent = `${hPlayer ? hPlayer.name : 'Victim'} (Cancel)`;
+        } else {
+          healBtn.className = 'witch-hub-btn heal ready';
+          healBtn.title = 'Heal Potion (Ready - Tap to use)';
+          if (healBadge) healBadge.style.display = 'none';
+          if (healTitle) healTitle.textContent = 'Heal Potion';
+          if (healDesc) healDesc.textContent = '1 Left (Ready)';
+        }
+      }
+
+      // Poison circle button state
+      const poisonBtn = document.getElementById('witch-hub-poison-btn');
+      const poisonBadge = document.getElementById('witch-hub-poison-badge');
+      const poisonTitle = document.getElementById('witch-hub-poison-title');
+      const poisonDesc = document.getElementById('witch-hub-poison-desc');
+      if (poisonBtn) {
+        if (!gameState.potions.witchPoisonAvailable && !gameState.nightActions.witchPoisonTarget) {
+          poisonBtn.className = 'witch-hub-btn poison disabled';
+          poisonBtn.title = 'Poison Potion (Used)';
+          if (poisonBadge) poisonBadge.style.display = 'none';
+          if (poisonTitle) poisonTitle.textContent = 'Poison Potion';
+          if (poisonDesc) poisonDesc.textContent = 'Used (0 Left)';
+        } else if (uiState.witchSelectionMode === 'poison') {
+          poisonBtn.className = 'witch-hub-btn poison selecting';
+          poisonBtn.title = 'Poisoning... Tap player on table';
+          if (poisonBadge) poisonBadge.style.display = 'none';
+          if (poisonTitle) poisonTitle.textContent = 'Poisoning...';
+          if (poisonDesc) poisonDesc.textContent = '👉 Tap Player';
+        } else if (gameState.nightActions.witchPoisonTarget) {
+          poisonBtn.className = 'witch-hub-btn poison active-used';
+          const pPlayer = gameState.players.find(p => p.id === gameState.nightActions.witchPoisonTarget);
+          poisonBtn.title = `Poisoned #${pPlayer ? pPlayer.seat + ' ' + pPlayer.name : ''} (Tap to Cancel)`;
+          if (poisonBadge) {
+            poisonBadge.style.display = 'flex';
+            poisonBadge.textContent = '☠️';
+          }
+          if (poisonTitle) poisonTitle.textContent = `☠️ Poison #${pPlayer ? pPlayer.seat : ''}`;
+          if (poisonDesc) poisonDesc.textContent = `${pPlayer ? pPlayer.name : ''} (Cancel)`;
+        } else {
+          poisonBtn.className = 'witch-hub-btn poison ready';
+          poisonBtn.title = 'Poison Potion (Ready - Tap to use)';
+          if (poisonBadge) poisonBadge.style.display = 'none';
+          if (poisonTitle) poisonTitle.textContent = 'Poison Potion';
+          if (poisonDesc) poisonDesc.textContent = '1 Left (Ready)';
+        }
+      }
+
+      // Keep auxiliary text hidden for clean & simple two circle buttons
+      const instrEl = document.getElementById('witch-hub-instruction');
+      if (instrEl) instrEl.style.display = 'none';
+
+      const doneBtn = document.getElementById('witch-hub-done-btn');
+      if (doneBtn) doneBtn.style.display = 'none';
+    } else if (hubEl) {
+      hubEl.classList.remove('witch-turn-hub');
+      if (defaultHubContent) defaultHubContent.style.display = 'flex';
+      if (witchHubContent) witchHubContent.style.display = 'none';
+    }
+  }
+
+  // Update Toolbar Expand Button text
+  const expandBtn = document.getElementById('table-expand-btn');
+  if (expandBtn) {
+    const isExp = container.classList.contains('expanded');
+    expandBtn.textContent = isExp ? '⛷ Compact Table' : '⛶ Expand Table';
+  }
+
+  // Update Toolbar Auto-Fill Button visibility & count
+  const unknownCount = gameState.players.filter(p => p.role === 'Unknown').length;
+  const tableAutofillBtn = document.getElementById('table-autofill-btn');
+  if (tableAutofillBtn) {
+    tableAutofillBtn.style.display = unknownCount > 0 ? 'inline-flex' : 'none';
+    tableAutofillBtn.textContent = `⚡ Auto-Fill (${unknownCount})`;
+  }
+
+  const steps = (gameState.phase === 'NIGHT') ? getActiveNightSteps() : [];
+  const currentStep = steps[gameState.wizardStepIndex];
+
+  // Active turn players whose cards animate to the middle of the table
+  const activeTurnPlayers = (gameState.phase === 'NIGHT' && currentStep && currentStep.targetRole)
+    ? gameState.players.filter(p => p.status === 'alive' && p.role === currentStep.targetRole)
+    : [];
+
+  if (activeTurnPlayers.length > 0) {
+    container.classList.add('has-active-turn-actor');
+  } else {
+    container.classList.remove('has-active-turn-actor');
+  }
+
+  // Evenly distribute cards along the perimeter of the ellipse
+  const angles = getEvenlySpacedEllipseAngles(total, radiusX, radiusY);
+
+  gameState.players.forEach((p, idx) => {
+    const angle = angles[idx];
+
+    const isCurrentTurn = (
+      gameState.phase === 'NIGHT' &&
+      currentStep &&
+      currentStep.targetRole &&
+      p.role === currentStep.targetRole &&
+      p.status === 'alive'
+    );
+
+    let x, y;
+    if (isCurrentTurn) {
+      // Animate card inward towards the middle of the table
+      const minActiveRadiusX = hubRadius + cardHalfWidth + (isMobile ? 8 : 14);
+      const minActiveRadiusY = hubRadius + cardHalfHeight + (isMobile ? 8 : 14);
+      const activeRadiusX = Math.max(minActiveRadiusX, radiusX * 0.44);
+      const activeRadiusY = Math.max(minActiveRadiusY, radiusY * 0.44);
+
+      let radiusScale = 1.0;
+      if (activeTurnPlayers.length === 2) {
+        const turnIdx = activeTurnPlayers.findIndex(tp => tp.id === p.id);
+        const otherIdx = 1 - turnIdx;
+        const otherP = activeTurnPlayers[otherIdx];
+        const otherAngle = angles[gameState.players.findIndex(x => x.id === otherP.id)];
+        const angleDiff = Math.abs(angle - otherAngle);
+        if (angleDiff < 1.05 || (Math.PI * 2 - angleDiff) < 1.05) {
+          radiusScale = (turnIdx === 0) ? 0.90 : 1.15;
+        }
+      }
+
+      x = centerX + (activeRadiusX * radiusScale) * Math.cos(angle);
+      y = centerY + (activeRadiusY * radiusScale) * Math.sin(angle);
+    } else {
+      x = centerX + radiusX * Math.cos(angle);
+      y = centerY + radiusY * Math.sin(angle);
+    }
+
+    const isWolfTarget = (gameState.nightActions.wolfTarget === p.id);
+    const isShieldTarget = (gameState.nightActions.bodyguardTarget === p.id);
+    const isPoisonTarget = (gameState.nightActions.witchPoisonTarget === p.id);
+    const isHealTarget = (gameState.nightActions.witchHealed && (gameState.nightActions.witchHealTarget === p.id || (!gameState.nightActions.witchHealTarget && gameState.nightActions.wolfTarget === p.id)));
+    const isSilenced = (gameState.nightActions.spellcasterTarget === p.id);
+    const isMirrorTarget = (gameState.nightActions.doppelgangerTarget === p.id);
+    const isCupidTarget = (gameState.phase === 'NIGHT' && currentStep && currentStep.id === 'cupid' && uiState.callerSubMode === 'target' && (gameState.nightActions.cupidLover1 === p.id || gameState.nightActions.cupidLover2 === p.id));
+    const isSeerTarget = (gameState.phase === 'NIGHT' && currentStep && currentStep.id === 'seer' && gameState.nightActions.seerTarget === p.id);
+    const isSeerWolf = isSeerTarget && (p.role === 'Werewolf' || p.role === 'Lycan');
+
+    const isDoppelTargetMode = (gameState.phase === 'NIGHT' && currentStep && currentStep.id === 'doppelganger' && uiState.callerSubMode === 'target');
+    const isDeadCandidate = (isDoppelTargetMode && p.status === 'dead');
+
+    let targetClass = '';
+    if (isDeadCandidate) {
+      targetClass = 'doppel-dead-candidate';
+    } else if (p.status === 'alive') {
+      if (isWolfTarget && isHealTarget) targetClass = 'targeted-heal';
+      else if (isHealTarget) targetClass = 'targeted-heal';
+      else if (isWolfTarget) targetClass = 'targeted-wolf';
+      else if (isShieldTarget) targetClass = 'targeted-shield';
+      else if (isPoisonTarget) targetClass = 'targeted-poison';
+      else if (isSilenced) targetClass = 'targeted-silence';
+      else if (isMirrorTarget) targetClass = 'targeted-mirror';
+      else if (isCupidTarget) targetClass = 'targeted-cupid';
+      else if (isSeerTarget) targetClass = isSeerWolf ? 'targeted-seer-wolf' : 'targeted-seer-town';
+    }
+
+    // Highlight and style active role holders (only if alive!)
+    if (isCurrentTurn) {
+      const roleLower = (p.role || '').toLowerCase();
+      targetClass += ` is-turn-actor active-role-actor actor-${roleLower}`;
+    } else if (gameState.phase === 'NIGHT' && currentStep && currentStep.targetRole && p.role === currentStep.targetRole && p.status === 'alive') {
+      targetClass += (uiState.callerSubMode === 'role' ? ' role-selected' : ' active-role-actor');
+    }
+
+    let turnBadgeText = '';
+    if (isCurrentTurn) {
+      switch (p.role) {
+        case 'Werewolf': turnBadgeText = '🐺 WOLF TURN'; break;
+        case 'Seer': turnBadgeText = '🔮 SEER CHECK'; break;
+        case 'Witch': turnBadgeText = '🧪 WITCH'; break;
+        case 'Bodyguard': turnBadgeText = '🛡️ SHIELD'; break;
+        case 'Cupid': turnBadgeText = '💘 CUPID'; break;
+        case 'Hunter': turnBadgeText = '🏹 HUNTER'; break;
+        case 'Mason': turnBadgeText = '🤝 MASON'; break;
+        case 'Spellcaster': turnBadgeText = '✨ SILENCE'; break;
+        case 'Doppelganger': turnBadgeText = '🎭 MIMIC'; break;
+        default: turnBadgeText = '👁️ ACTIVE'; break;
+      }
+    }
+
+    let node = existingNodes.get(p.id);
+    const isNew = !node;
+    if (isNew) {
+      node = document.createElement('div');
+      node.dataset.playerId = p.id;
+      setupPlayerNodeHold(node, p.id);
+      container.appendChild(node);
+    }
+
+    node.className = `table-touch-node ${p.status === 'dead' ? 'dead' : ''} ${targetClass}`.trim();
+    node.style.left = `${Math.round(x)}px`;
+    node.style.top = `${Math.round(y)}px`;
+
+    let overlayIcon = '';
+    if (isDeadCandidate) overlayIcon = '🎭';
+    else if (p.status === 'dead') overlayIcon = '💀';
+    else if (isHealTarget) overlayIcon = '💚';
+    else if (isWolfTarget) overlayIcon = '🐺';
+    else if (isShieldTarget) overlayIcon = '🛡️';
+    else if (isPoisonTarget) overlayIcon = '☠️';
+    else if (isSilenced) overlayIcon = '🤐';
+    else if (isMirrorTarget) overlayIcon = '🎭';
+    else if (isSeerTarget) overlayIcon = isSeerWolf ? '🟢' : '🔴';
+    else if (p.checkedBySeer) overlayIcon = '👁️';
+
+    node.innerHTML = `
+      <span class="node-seat-badge">#${p.seat}</span>
+      ${turnBadgeText ? `<span class="node-turn-indicator-badge">${turnBadgeText}</span>` : ''}
+      <div class="node-avatar-wrapper">
+        <img src="${getRoleImage(p.role)}" class="node-avatar" alt="${p.role}" onerror="this.src='images/anonymous.jpeg'">
+        ${overlayIcon ? `<span class="node-status-overlay">${overlayIcon}</span>` : ''}
+        ${p.isLover && p.status === 'alive' ? `<span class="node-lover-badge">💘</span>` : ''}
+        ${p.isMayor && p.status === 'alive' ? `<span class="node-mayor-badge">👑</span>` : ''}
+        ${p.status === 'alive' && p.votes && p.votes > 0 ? `<span class="node-vote-badge" onclick="decrementPlayerVote('${p.id}', event)" title="Tap to -1 vote">${p.votes}v<span class="vote-minus-symbol">-</span></span>` : ''}
+      </div>
+      <div class="node-seat-name"><span class="node-seat-num-inline">#${p.seat}</span> ${p.name}</div>
+      <div class="node-role-label ${p.role === 'Unknown' ? 'role-unknown' : ''}">${p.role === 'Unknown' ? '? Unknown' : p.role}</div>
+    `;
+  });
+}
+
+export function setupPlayerNodeHold(node, playerId) {
+  const onHoldStart = (e) => {
+    holdTriggered = false;
+    isHolding = true;
+    node.classList.add('holding');
+    holdTimeout = setTimeout(() => {
+      if (isHolding) {
+        holdTriggered = true;
+        node.classList.remove('holding');
+        if (navigator.vibrate) {
+          try { navigator.vibrate(40); } catch(err){}
+        }
+        soundManager.playBeep();
+        openPlayerActionSheet(playerId);
+      }
+    }, 450);
+  };
+
+  const onHoldEnd = () => {
+    isHolding = false;
+    node.classList.remove('holding');
+    if (holdTimeout) {
+      clearTimeout(holdTimeout);
+      holdTimeout = null;
+    }
+  };
+
+  // Touch handlers
+  node.addEventListener('touchstart', onHoldStart, { passive: true });
+  node.addEventListener('touchend', onHoldEnd);
+  node.addEventListener('touchcancel', onHoldEnd);
+  node.addEventListener('touchmove', onHoldEnd);
+
+  // Mouse handlers (desktop)
+  node.addEventListener('mousedown', (e) => {
+    if (e.button === 0) onHoldStart(e);
+  });
+  node.addEventListener('mouseup', onHoldEnd);
+  node.addEventListener('mouseleave', onHoldEnd);
+
+  // Context menu (right click)
+  node.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    onHoldEnd();
+    openPlayerActionSheet(playerId);
+  });
+
+  // Regular click
+  node.onclick = () => {
+    if (holdTriggered) {
+      holdTriggered = false;
+      return;
+    }
+    handleTableNodeTap(playerId);
+  };
+}
+
+export function handleTableNodeTap(playerId, callbacks = {}) {
+  const player = gameState.players.find(p => p.id === playerId);
+  if (!player) return;
+
+  // 1. DAY PHASE: Tapping adds a vote!
+  if (gameState.phase === 'DAY') {
+    if (player.status !== 'alive') return;
+    addPlayerVote(player.id, { renderTouchTable, ...callbacks });
+    return;
+  }
+
+  // 2. NIGHT PHASE
+  const steps = getActiveNightSteps();
+  const currentStep = steps[gameState.wizardStepIndex];
+  if (!currentStep) return;
+
+  if (currentStep.id === 'resolution') {
+    openPlayerActionSheet(playerId);
+    return;
+  }
+
+  // If this step's role is dead, they cannot take any night action!
+  if (isStepRoleDead(currentStep)) {
+    soundManager.playBeep();
+    showGameToast(`💀 ${currentStep.targetRole} is dead! No night action can be taken.`);
+    return;
+  }
+
+  if (gameState.currentNight >= 2) {
+    uiState.callerSubMode = 'target';
+  }
+
+  // SUB-MODE A: SET ROLE
+  if (uiState.callerSubMode === 'role' && gameState.currentNight === 1) {
+    const holders = gameState.players.filter(p => p.role === currentStep.targetRole);
+    const targetCount = getRoleTargetCount(currentStep.targetRole);
+
+    if (player.role === currentStep.targetRole) {
+      player.role = 'Unknown';
+      cancelAutoAdvance();
+      soundManager.playBeep();
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog('Set Role', `Removed ${currentStep.targetRole} from #${player.seat} ${player.name}`);
+      }
+      saveAppState();
+      renderNightCaller();
+      renderTouchTable();
+      return;
+    }
+
+    // If all holders for this step are already assigned, and the step has a skill (e.g. Werewolves, Seer):
+    // Automatically transition to target mode and let the tap execute the skill action!
+    if (holders.length >= targetCount && currentStep.hasSkill) {
+      uiState.callerSubMode = 'target';
+      uiState.userExplicitRoleMode = false;
+      renderNightCaller();
+      // Falls through to SUB-MODE B (Skill Targeting)
+    } else {
+      if (player.role !== 'Unknown') {
+        soundManager.playBeep();
+        showCustomAlert(`⚠️ #${player.seat} ${player.name} is already assigned as "${player.role}"!\nCannot replace with "${currentStep.targetRole}".\nTo reassign, tap them in the ${player.role} step to unassign first.`);
+        return;
+      }
+
+      if (holders.length >= targetCount) {
+        soundManager.playBeep();
+        showCustomAlert(`⚠️ Limit reached! Exactly ${targetCount} ${currentStep.targetRole}(s) configured in deck.\nTap an existing ${currentStep.targetRole} to unselect if you made a mistake.`);
+        return;
+      }
+
+      player.role = currentStep.targetRole;
+      soundManager.playChime();
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog('Set Role', `Set #${player.seat} ${player.name} to ${player.role}`);
+      }
+      smartAutoFillRemainingRoles(false, callbacks);
+
+      const updatedHolders = gameState.players.filter(p => p.role === currentStep.targetRole);
+
+      if (updatedHolders.length >= targetCount) {
+        if (currentStep.hasSkill) {
+          uiState.callerSubMode = 'target';
+          uiState.userExplicitRoleMode = false;
+          soundManager.playChime();
+        } else {
+          soundManager.playChime();
+          scheduleAutoAdvance(500, callbacks);
+        }
+      }
+
+      saveAppState();
+      renderNightCaller();
+      renderTouchTable();
+      return;
+    }
+  }
+
+  // SUB-MODE B: SKILL TARGETING
+  if (currentStep.id === 'doppelganger') {
+    if (player.status !== 'dead') {
+      soundManager.playBeep();
+      showCustomAlert(`⚠️ #${player.seat} ${player.name} is alive!\n\nDoppelganger can only take the role of a player who has died.`);
+      return;
+    }
+
+    const doppel = gameState.players.find(p => p.role === 'Doppelganger' && p.status === 'alive') ||
+                   gameState.players.find(p => p.role === 'Doppelganger');
+    if (!doppel) {
+      showCustomAlert('⚠️ No Doppelganger found in the game to receive the role.');
+      return;
+    }
+
+    const inheritedRole = (player.role && player.role !== 'Unknown') ? player.role : 'Villager';
+    doppel.role = inheritedRole;
+    gameState.nightActions.doppelgangerTarget = player.id;
+    soundManager.playFanfare();
+    showCustomAlert(`🎭 DOPPELGANGER TRANSFORMED!\n\n${doppel.name} took deceased #${player.seat} ${player.name}'s role and is now a ${inheritedRole}!\nHer card is updated immediately!`);
+    if (typeof callbacks.addHistoryLog === 'function') {
+      callbacks.addHistoryLog('Doppelganger Transform', `${doppel.name} took deceased ${player.name}'s role and became ${inheritedRole}.`);
+    }
+
+    smartAutoFillRemainingRoles(false, callbacks);
+    saveAppState();
+    renderNightCaller();
+    renderTouchTable();
+    scheduleAutoAdvance(700, callbacks);
+    return;
+  }
+
+  if (player.status !== 'alive') {
+    showCustomAlert(`⚠️ #${player.seat} ${player.name} is dead!\nCannot target dead players.`, {
+      title: 'Action Blocked',
+      icon: '💀',
+      confirmText: 'Got It',
+      confirmClass: 'btn-danger-solid'
+    });
+    return;
+  }
+
+  if (currentStep.id === 'werewolves') {
+    if (player.role === 'Werewolf') {
+      soundManager.playBeep();
+      showCustomAlert(`⚠️ #${player.seat} ${player.name} is a Werewolf!\n\nWerewolves cannot eliminate fellow pack members. Please choose a non-werewolf victim.`);
+      return;
+    }
+    if (gameState.nightActions.wolfTarget === playerId) {
+      gameState.nightActions.wolfTarget = null;
+      cancelAutoAdvance();
+      soundManager.playBeep();
+    } else {
+      gameState.nightActions.wolfTarget = playerId;
+      soundManager.playBeep();
+      scheduleAutoAdvance(600, callbacks);
+    }
+    saveAppState();
+    renderNightCaller();
+    renderTouchTable();
+  } else if (currentStep.id === 'bodyguard') {
+    if (playerId === gameState.nightActions.bodyguardLastTarget) {
+      showCustomAlert(`⚠️ Bodyguard shielded #${player.seat} ${player.name} last night!\nCannot guard the same person two nights in a row.`, {
+        title: 'Action Blocked',
+        icon: '🛡️',
+        confirmText: 'Choose Someone Else',
+        confirmClass: 'btn-warning'
+      });
+      return;
+    }
+    if (gameState.nightActions.bodyguardTarget === playerId) {
+      gameState.nightActions.bodyguardTarget = null;
+      cancelAutoAdvance();
+      soundManager.playBeep();
+    } else {
+      gameState.nightActions.bodyguardTarget = playerId;
+      soundManager.playBeep();
+      scheduleAutoAdvance(600, callbacks);
+    }
+    saveAppState();
+    renderNightCaller();
+    renderTouchTable();
+  } else if (currentStep.id === 'spellcaster') {
+    if (gameState.nightActions.spellcasterTarget === playerId) {
+      gameState.nightActions.spellcasterTarget = null;
+      cancelAutoAdvance();
+      soundManager.playBeep();
+    } else {
+      gameState.nightActions.spellcasterTarget = playerId;
+      soundManager.playBeep();
+      scheduleAutoAdvance(600, callbacks);
+    }
+    saveAppState();
+    renderNightCaller();
+    renderTouchTable();
+  } else if (currentStep.id === 'witch') {
+    if (uiState.witchSelectionMode === 'heal') {
+      gameState.nightActions.witchHealed = true;
+      gameState.nightActions.witchHealTarget = playerId;
+      uiState.witchSelectionMode = null;
+      soundManager.playChime();
+      showGameToast(`💚 #${player.seat} ${player.name} was saved with Healing Potion!`);
+      saveAppState();
+      renderNightCaller();
+      renderTouchTable();
+      return;
+    } else if (uiState.witchSelectionMode === 'poison' || gameState.nightActions.witchArmPoison) {
+      gameState.nightActions.witchPoisonTarget = (gameState.nightActions.witchPoisonTarget === playerId) ? null : playerId;
+      uiState.witchSelectionMode = null;
+      gameState.nightActions.witchArmPoison = false;
+      soundManager.playBeep();
+      if (gameState.nightActions.witchPoisonTarget) {
+        soundManager.playChime();
+        showGameToast(`☠️ #${player.seat} ${player.name} targeted for poison!`);
+      }
+      saveAppState();
+      renderNightCaller();
+      renderTouchTable();
+      return;
+    } else {
+      handleWitchDirectPlayerTap(player, callbacks);
+      return;
+    }
+  } else if (currentStep.id === 'seer') {
+    gameState.nightActions.seerTarget = playerId;
+    player.checkedBySeer = true;
+    soundManager.playChime();
+    const isWerewolf = (player.role === 'Werewolf' || player.role === 'Lycan');
+
+    if (isWerewolf) {
+      const roleText = player.role === 'Lycan' ? 'Lycan (Appears as Werewolf)' : 'Werewolf';
+      showCustomAlert(
+        `#${player.seat} ${player.name}\n\nRole: ${roleText}`,
+        {
+          title: '🟢 Correct: Werewolf!',
+          icon: '🐺',
+          confirmText: 'Got It (Werewolf) 👍',
+          confirmClass: 'btn-success',
+          cardBorder: '#10b981',
+          cardGlow: 'rgba(16, 185, 129, 0.4)'
+        }
+      );
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog('Seer Check', `Seer checked #${player.seat} ${player.name} -> 🟢 Correct: Werewolf (${player.role})`);
+      }
+    } else {
+      showCustomAlert(
+        `#${player.seat} ${player.name}\n\nRole: ${player.role}`,
+        {
+          title: '🔴 Wrong: Not Werewolf',
+          icon: '❌',
+          confirmText: 'Got It (Not Werewolf) 👎',
+          confirmClass: 'btn-danger-solid',
+          cardBorder: '#ef4444',
+          cardGlow: 'rgba(239, 68, 68, 0.4)'
+        }
+      );
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog('Seer Check', `Seer checked #${player.seat} ${player.name} -> 🔴 Wrong: Not Werewolf (${player.role})`);
+      }
+    }
+
+    saveAppState();
+    renderNightCaller();
+    renderTouchTable();
+    scheduleAutoAdvance(500, callbacks);
+  } else if (currentStep.id === 'cupid') {
+    if (gameState.nightActions.cupidLover1 === playerId) {
+      gameState.nightActions.cupidLover1 = null;
+      player.isLover = false;
+      cancelAutoAdvance();
+      soundManager.playBeep();
+    } else if (gameState.nightActions.cupidLover2 === playerId) {
+      gameState.nightActions.cupidLover2 = null;
+      player.isLover = false;
+      cancelAutoAdvance();
+      soundManager.playBeep();
+    } else if (!gameState.nightActions.cupidLover1) {
+      gameState.nightActions.cupidLover1 = playerId;
+      player.isLover = true;
+      soundManager.playBeep();
+    } else if (!gameState.nightActions.cupidLover2) {
+      gameState.nightActions.cupidLover2 = playerId;
+      player.isLover = true;
+      soundManager.playChime();
+      const p1 = gameState.players.find(p => p.id === gameState.nightActions.cupidLover1);
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog('Cupid', `Bound in love: #${p1.seat} ${p1.name} & #${player.seat} ${player.name}`);
+      }
+      scheduleAutoAdvance(650, callbacks);
+    } else {
+      const oldLover2 = gameState.players.find(p => p.id === gameState.nightActions.cupidLover2);
+      if (oldLover2) oldLover2.isLover = false;
+      gameState.nightActions.cupidLover2 = playerId;
+      player.isLover = true;
+      soundManager.playChime();
+      const p1 = gameState.players.find(p => p.id === gameState.nightActions.cupidLover1);
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog('Cupid', `Bound in love: #${p1.seat} ${p1.name} & #${player.seat} ${player.name}`);
+      }
+      scheduleAutoAdvance(650, callbacks);
+    }
+
+    gameState.players.forEach(p => {
+      p.isLover = (p.id === gameState.nightActions.cupidLover1 || p.id === gameState.nightActions.cupidLover2);
+    });
+
+    saveAppState();
+    renderNightCaller();
+    renderTouchTable();
+    return;
+  } else {
+    openPlayerActionSheet(playerId);
+  }
+}

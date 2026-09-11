@@ -1,0 +1,237 @@
+/**
+ * Player Action Sheet
+ * Triggered by long-pressing / holding a player's card to quickly view or edit role, status, or notes.
+ */
+import { gameState, lobbyState, uiState } from '../../state/store.js';
+import { getRoleData } from '../../state/roles.js';
+import { soundManager } from '../../audio/sound.js';
+import { saveAppState } from '../../state/storage.js';
+import { showCustomAlert } from '../dialog.js';
+
+export function openPlayerActionSheet(playerId) {
+  uiState.sheetTargetPlayerId = playerId;
+  const p = gameState.players.find(x => x.id === playerId);
+  if (!p) return;
+
+  const seatEl = document.getElementById('sheet-player-seat');
+  if (seatEl) seatEl.textContent = `#${p.seat}`;
+  const nameInput = document.getElementById('sheet-player-name-input');
+  if (nameInput) nameInput.value = p.name;
+  const oldNameEl = document.getElementById('sheet-player-name');
+  if (oldNameEl) oldNameEl.textContent = `#${p.seat} ${p.name}`;
+
+  const roleText = p.role === 'Unknown' ? 'Unknown (Hidden)' : p.role;
+  document.getElementById('sheet-player-role').textContent = `${roleText} (${p.status.toUpperCase()})`;
+  document.getElementById('sheet-player-notes').value = p.notes || '';
+
+  // 1-Tap Role Quick Picker Grid: Unknown first + all 14 roles!
+  const pickerEl = document.getElementById('sheet-role-picker');
+  const allRoles = ['Unknown', 'Villager', 'Werewolf', 'Seer', 'Bodyguard', 'Witch', 'Hunter', 'Cupid', 'Mason', 'Spellcaster', 'Lycan', 'Doppelganger', 'Tanner', 'Cursed', 'Prince'];
+  pickerEl.innerHTML = allRoles.map(r => {
+    const rData = getRoleData(r);
+    const isActive = (p.role.toLowerCase() === r.toLowerCase());
+    return `
+      <button class="sheet-role-btn ${isActive ? 'active' : ''}" onclick="sheetSetRole('${r}')">
+        <img src="${rData.image}" class="sheet-role-avatar" alt="${r}" onerror="this.src='images/anonymous.jpeg'">
+        <span>${r}</span>
+      </button>
+    `;
+  }).join('');
+
+  const lifeBtn = document.getElementById('sheet-toggle-life-btn');
+  lifeBtn.textContent = p.status === 'alive' ? '💀 Kill Player' : '💚 Revive Player';
+  lifeBtn.className = p.status === 'alive' ? 'btn btn-danger' : 'btn btn-success';
+
+  document.getElementById('sheet-toggle-mayor-btn').textContent = p.isMayor ? '👑 Remove Mayor' : '👑 Make Mayor';
+  document.getElementById('sheet-toggle-lover-btn').textContent = p.isLover ? '💘 Remove Lover' : '💘 Make Lover';
+
+  // Doppelganger target setting row
+  const doppelRow = document.getElementById('sheet-doppelganger-row');
+  if (doppelRow) {
+    doppelRow.style.display = (p.role === 'Doppelganger') ? 'block' : 'none';
+  }
+
+  document.getElementById('player-action-sheet-backdrop').classList.add('open');
+}
+
+export function closePlayerActionSheet() {
+  document.getElementById('player-action-sheet-backdrop').classList.remove('open');
+  uiState.sheetTargetPlayerId = null;
+}
+
+export function sheetSaveName(newName, callbacks = {}) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+  const trimmed = newName.trim();
+  if (!trimmed) return;
+  p.name = trimmed;
+  if (lobbyState.players && lobbyState.players[p.seat - 1] !== undefined) {
+    lobbyState.players[p.seat - 1] = trimmed;
+  }
+  soundManager.playBeep();
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Renamed', `Seat #${p.seat} renamed to ${trimmed}`);
+  }
+  saveAppState();
+  if (typeof callbacks.renderGameScreen === 'function') {
+    callbacks.renderGameScreen();
+  }
+}
+
+export function sheetSetRole(newRole, callbacks = {}) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+
+  p.role = newRole;
+  soundManager.playChime();
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Role Changed', `Changed #${p.seat} ${p.name} to ${newRole}`);
+  }
+  saveAppState();
+  closePlayerActionSheet();
+  if (typeof callbacks.smartAutoFillRemainingRoles === 'function') {
+    callbacks.smartAutoFillRemainingRoles();
+  }
+  if (typeof callbacks.renderGameScreen === 'function') {
+    callbacks.renderGameScreen();
+  }
+}
+
+export function sheetSetDoppelgangerTargetPrompt(callbacks = {}) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const doppel = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!doppel) return;
+
+  const options = gameState.players.filter(p => p.id !== doppel.id && p.status === 'dead');
+  if (options.length === 0) {
+    alert('No deceased players in the game yet! Doppelganger can only take the role of someone who has died.');
+    return;
+  }
+
+  const list = options.map(p => `#${p.seat} ${p.name} (Role: ${p.role})`).join('\n');
+  const targetSeat = prompt(`Enter seat number of deceased player for Doppelganger to become:\n\n${list}`);
+  if (!targetSeat) return;
+
+  const chosen = options.find(p => String(p.seat) === targetSeat.trim());
+  if (!chosen) {
+    alert('Invalid seat number selected.');
+    return;
+  }
+
+  const inheritedRole = (chosen.role && chosen.role !== 'Unknown') ? chosen.role : 'Villager';
+  doppel.role = inheritedRole;
+  gameState.nightActions.doppelgangerTarget = chosen.id;
+  soundManager.playFanfare();
+  alert(`🎭 Doppelganger took deceased #${chosen.seat} ${chosen.name}'s role and is now a ${inheritedRole}!\nHer card is updated immediately!`);
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Doppelganger Transform', `${doppel.name} took deceased ${chosen.name}'s role and became ${inheritedRole}.`);
+  }
+  if (typeof callbacks.smartAutoFillRemainingRoles === 'function') {
+    callbacks.smartAutoFillRemainingRoles();
+  }
+  saveAppState();
+  closePlayerActionSheet();
+  if (typeof callbacks.renderGameScreen === 'function') {
+    callbacks.renderGameScreen();
+  }
+}
+
+export function sheetToggleLife(callbacks = {}) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+  p.status = p.status === 'alive' ? 'dead' : 'alive';
+  soundManager.playBeep();
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Moderator Override', `${p.name} set to ${p.status.toUpperCase()}`);
+  }
+  if (p.status === 'dead') {
+    if (typeof callbacks.checkDoppelgangerTrigger === 'function') {
+      callbacks.checkDoppelgangerTrigger(p.id);
+    }
+    if (p.role === 'Hunter' && typeof callbacks.triggerHunterRevenge === 'function') {
+      callbacks.triggerHunterRevenge(p);
+    }
+  }
+  saveAppState();
+  closePlayerActionSheet();
+  if (typeof callbacks.renderGameScreen === 'function') {
+    callbacks.renderGameScreen();
+  }
+  if (typeof callbacks.checkWinCondition === 'function') {
+    callbacks.checkWinCondition();
+  }
+}
+
+export function sheetToggleMayor(callbacks = {}) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+  p.isMayor = !p.isMayor;
+  if (p.isMayor) {
+    gameState.players.forEach(o => { if (o.id !== p.id) o.isMayor = false; });
+  }
+  soundManager.playBeep();
+  saveAppState();
+  closePlayerActionSheet();
+  if (typeof callbacks.renderGameScreen === 'function') {
+    callbacks.renderGameScreen();
+  }
+}
+
+export function sheetToggleLover(callbacks = {}) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+  p.isLover = !p.isLover;
+  soundManager.playBeep();
+  saveAppState();
+  closePlayerActionSheet();
+  if (typeof callbacks.renderGameScreen === 'function') {
+    callbacks.renderGameScreen();
+  }
+}
+
+export function sheetSeerReveal() {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+  const isWerewolf = (p.role === 'Werewolf' || p.role === 'Lycan');
+
+  if (isWerewolf) {
+    const roleText = p.role === 'Lycan' ? 'Lycan (Appears as Werewolf)' : 'Werewolf';
+    showCustomAlert(
+      `#${p.seat} ${p.name}\n\nRole: ${roleText}`,
+      {
+        title: '🟢 Correct: Werewolf!',
+        icon: '🐺',
+        confirmText: 'Got It (Werewolf) 👍',
+        confirmClass: 'btn-success',
+        cardBorder: '#10b981',
+        cardGlow: 'rgba(16, 185, 129, 0.4)'
+      }
+    );
+  } else {
+    showCustomAlert(
+      `#${p.seat} ${p.name}\n\nRole: ${p.role}`,
+      {
+        title: '🔴 Wrong: Not Werewolf',
+        icon: '❌',
+        confirmText: 'Got It (Not Werewolf) 👎',
+        confirmClass: 'btn-danger-solid',
+        cardBorder: '#ef4444',
+        cardGlow: 'rgba(239, 68, 68, 0.4)'
+      }
+    );
+  }
+}
+
+export function sheetSaveNotes(notes) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+  p.notes = notes;
+  saveAppState();
+}
