@@ -6,9 +6,12 @@ export class SoundManager {
   constructor() {
     this.ctx = null;
     this.enabled = true;
+    this.isAlarmRunning = false;
+    this.alarmInterval = null;
   }
 
   init() {
+    if (typeof window === 'undefined') return;
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) this.ctx = new AudioCtx();
@@ -98,6 +101,111 @@ export class SoundManager {
       gain.connect(this.ctx.destination);
       osc.start(now + n.time);
       osc.stop(now + n.time + n.dur);
+    });
+  }
+
+  playAlarmPulse() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    // Dual-chirp digital alarm buzzer
+    const now = this.ctx.currentTime;
+    const tones = [
+      { freq: 880, start: 0.00, dur: 0.12 },
+      { freq: 1174.66, start: 0.14, dur: 0.14 },
+      { freq: 880, start: 0.30, dur: 0.12 },
+      { freq: 1174.66, start: 0.44, dur: 0.18 }
+    ];
+    tones.forEach(t => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(t.freq, now + t.start);
+      gain.gain.setValueAtTime(0.26, now + t.start);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + t.start + t.dur);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now + t.start);
+      osc.stop(now + t.start + t.dur);
+    });
+  }
+
+  startAlarmLoop() {
+    if (!this.enabled) return;
+    this.stopAlarm();
+    this.isAlarmRunning = true;
+    this.playAlarmPulse();
+    this.alarmInterval = setInterval(() => {
+      if (!this.isAlarmRunning || !this.enabled) {
+        this.stopAlarm();
+        return;
+      }
+      this.playAlarmPulse();
+    }, 750);
+  }
+
+  stopAlarm() {
+    this.isAlarmRunning = false;
+    if (this.alarmInterval) {
+      clearInterval(this.alarmInterval);
+      this.alarmInterval = null;
+    }
+  }
+
+  playAttentionBell() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    // Multi-harmonic bronze town hall bell strike
+    const harmonics = [
+      { freq: 440, gain: 0.35, decay: 2.2 },
+      { freq: 880, gain: 0.28, decay: 1.8 },
+      { freq: 1318.5, gain: 0.20, decay: 1.4 },
+      { freq: 1760, gain: 0.15, decay: 1.0 },
+      { freq: 2637, gain: 0.08, decay: 0.6 }
+    ];
+    harmonics.forEach(h => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(h.freq, now);
+      gain.gain.setValueAtTime(h.gain, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + h.decay);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + h.decay);
+    });
+  }
+
+  playSunriseBell() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    // Ascending morning dawn bells with bright ringing decay
+    const bells = [
+      { freq: 523.25, time: 0.00, dur: 1.4, gain: 0.25 },
+      { freq: 659.25, time: 0.22, dur: 1.4, gain: 0.25 },
+      { freq: 783.99, time: 0.44, dur: 1.6, gain: 0.28 },
+      { freq: 1046.50, time: 0.68, dur: 2.2, gain: 0.32 },
+      { freq: 2093.00, time: 0.68, dur: 1.0, gain: 0.08 }
+    ];
+    bells.forEach(b => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(b.freq, now + b.time);
+      gain.gain.setValueAtTime(b.gain, now + b.time);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + b.time + b.dur);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now + b.time);
+      osc.stop(now + b.time + b.dur);
     });
   }
 }

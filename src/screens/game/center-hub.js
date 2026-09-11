@@ -6,6 +6,7 @@ import { gameState, lobbyState, uiState } from '../../state/store.js';
 import { soundManager } from '../../audio/sound.js';
 import { getRoleTargetCount } from '../../state/roles.js';
 import { getActiveNightSteps, renderNightCaller, isStepRoleDead } from './night-caller.js';
+import { assignRandomPlayerForRole } from './autofill.js';
 
 export function handleCenterHubTap(callbacks = {}) {
   soundManager.playBeep();
@@ -14,7 +15,8 @@ export function handleCenterHubTap(callbacks = {}) {
   const resolveDayFn = typeof callbacks.resolveNightAndStartDay === 'function' ? callbacks.resolveNightAndStartDay : (typeof globalThis.resolveNightAndStartDay === 'function' ? globalThis.resolveNightAndStartDay : null);
   const renderTableFn = typeof callbacks.renderTouchTable === 'function' ? callbacks.renderTouchTable : (typeof globalThis.renderTouchTable === 'function' ? globalThis.renderTouchTable : null);
 
-  if (gameState.phase === 'NIGHT') {
+  const phase = (gameState.phase || '').toUpperCase();
+  if (phase === 'NIGHT') {
     const steps = getSteps ? getSteps() : [];
     const currentStep = steps[gameState.wizardStepIndex];
     if (currentStep && currentStep.id === 'resolution') {
@@ -36,11 +38,16 @@ export function handleCenterHubTap(callbacks = {}) {
       return;
     }
 
-    // If on a skill step in role-assign mode and all roles are set, tapping hub switches to target mode (e.g. Wolf Kill)
-    if (currentStep && currentStep.hasSkill && uiState.callerSubMode === 'role') {
+    // If on a role-assignment step:
+    // Tapping the center hub assigns a random unknown player to this role!
+    if (currentStep && currentStep.targetRole && uiState.callerSubMode === 'role') {
       const holders = gameState.players.filter(p => p.role === currentStep.targetRole);
       const targetCount = getRoleTargetCount(currentStep.targetRole, lobbyState);
-      if (holders.length >= targetCount && targetCount > 0) {
+      if (holders.length < targetCount) {
+        assignRandomPlayerForRole(currentStep.targetRole, callbacks);
+        return;
+      }
+      if (holders.length >= targetCount && targetCount > 0 && currentStep.hasSkill) {
         uiState.callerSubMode = 'target';
         uiState.userExplicitRoleMode = false;
         renderNightCaller();
@@ -50,7 +57,7 @@ export function handleCenterHubTap(callbacks = {}) {
     }
 
     if (nextStepFn) nextStepFn(callbacks);
-  } else if (gameState.phase === 'DAY') {
+  } else if (phase === 'DAY') {
     const alive = gameState.players.filter(p => p.status === 'alive');
     let maxVotes = 0;
     alive.forEach(p => {

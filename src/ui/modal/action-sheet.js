@@ -24,10 +24,16 @@ export function openPlayerActionSheet(playerId) {
   document.getElementById('sheet-player-role').textContent = `${roleText} (${p.status.toUpperCase()})`;
   document.getElementById('sheet-player-notes').value = p.notes || '';
 
-  // 1-Tap Role Quick Picker Grid: Unknown first + all 14 roles!
+  // 1-Tap Role Quick Picker Grid: Random first + Unknown + all 14 roles!
   const pickerEl = document.getElementById('sheet-role-picker');
   const allRoles = ['Unknown', 'Villager', 'Werewolf', 'Seer', 'Bodyguard', 'Witch', 'Hunter', 'Cupid', 'Mason', 'Spellcaster', 'Lycan', 'Doppelganger', 'Tanner', 'Cursed', 'Prince'];
-  pickerEl.innerHTML = allRoles.map(r => {
+  const randomChip = `
+    <button class="sheet-role-btn sheet-random-role-btn" onclick="sheetAssignRandomRole()" title="Assign a random unassigned role from deck">
+      <span style="font-size: 1.3rem;">🎲</span>
+      <span style="color: #c084fc; font-weight: 800;">Random</span>
+    </button>
+  `;
+  pickerEl.innerHTML = randomChip + allRoles.map(r => {
     const rData = getRoleData(r);
     const isActive = (p.role.toLowerCase() === r.toLowerCase());
     return `
@@ -55,7 +61,8 @@ export function openPlayerActionSheet(playerId) {
 }
 
 export function closePlayerActionSheet() {
-  document.getElementById('player-action-sheet-backdrop').classList.remove('open');
+  const backdrop = (typeof document !== 'undefined') ? document.getElementById('player-action-sheet-backdrop') : null;
+  if (backdrop) backdrop.classList.remove('open');
   uiState.sheetTargetPlayerId = null;
 }
 
@@ -96,6 +103,55 @@ export function sheetSetRole(newRole, callbacks = {}) {
   }
   if (typeof callbacks.renderGameScreen === 'function') {
     callbacks.renderGameScreen();
+  }
+}
+
+export function sheetAssignRandomRole(callbacks = {}) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+
+  const deck = lobbyState.roleDeck || {};
+  const assignedCounts = {};
+  gameState.players.forEach(player => {
+    if (player.id !== p.id && player.role && player.role !== 'Unknown') {
+      assignedCounts[player.role] = (assignedCounts[player.role] || 0) + 1;
+    }
+  });
+
+  const missingRoles = [];
+  for (const [roleName, targetCount] of Object.entries(deck)) {
+    const assigned = assignedCounts[roleName] || 0;
+    if (assigned < targetCount) {
+      for (let i = 0; i < targetCount - assigned; i++) {
+        missingRoles.push(roleName);
+      }
+    }
+  }
+
+  const pool = missingRoles.length > 0
+    ? missingRoles
+    : ['Villager', 'Werewolf', 'Seer', 'Bodyguard', 'Witch', 'Hunter', 'Cupid', 'Spellcaster', 'Tanner', 'Mason'];
+
+  const randomRole = pool[Math.floor(Math.random() * pool.length)];
+  p.role = randomRole;
+
+  soundManager.playChime();
+  showGameToast(`🎲 Random: #${p.seat} ${p.name} assigned as ${randomRole}!`);
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Random Role', `Randomly set #${p.seat} ${p.name} to ${randomRole}`);
+  }
+
+  saveAppState();
+  closePlayerActionSheet();
+
+  if (typeof callbacks.smartAutoFillRemainingRoles === 'function') {
+    callbacks.smartAutoFillRemainingRoles();
+  }
+  if (typeof callbacks.renderGameScreen === 'function') {
+    callbacks.renderGameScreen();
+  } else if (typeof globalThis.renderGameScreen === 'function') {
+    globalThis.renderGameScreen();
   }
 }
 

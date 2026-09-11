@@ -8,10 +8,10 @@ import { loadAppState, saveAppState } from './state/storage.js';
 import { parseDialogMeta, showCustomAlert, showCustomConfirm, handleCustomDialogResolve, handleDialogBackdropClick, initDialogKeyboardListeners } from './ui/dialog.js';
 import { showGameToast } from './ui/toast.js';
 import { showWinOverlay, closeWinOverlay, returnToLobbyFromGameOver, stayAndViewTable } from './ui/modal/win-modal.js';
-import { openPlayerActionSheet, closePlayerActionSheet, sheetSaveName, sheetSetRole, sheetSetDoppelgangerTargetPrompt, sheetToggleLife, sheetToggleMayor, sheetToggleLover, sheetSeerReveal, sheetSaveNotes } from './ui/modal/action-sheet.js';
+import { openPlayerActionSheet, closePlayerActionSheet, sheetSaveName, sheetSetRole, sheetAssignRandomRole, sheetSetDoppelgangerTargetPrompt, sheetToggleLife, sheetToggleMayor, sheetToggleLover, sheetSeerReveal, sheetSaveNotes } from './ui/modal/action-sheet.js';
 import { triggerHunterRevenge, processNextHunterRevenge, openHunterRevengeModal, executeHunterRevenge, passHunterRevenge, closeHunterRevengeModal, currentRevengeHunter, getCurrentRevengeHunter, setCurrentRevengeHunter } from './ui/modal/hunter-modal.js';
 import { getEvenlySpacedEllipseAngles } from './utils/math.js';
-import { toggleTimer, startTimer, pauseTimer, resetTimer, updateTimerDisplay, toggleSound } from './utils/timer.js';
+import { toggleTimer, startTimer, pauseTimer, resetTimer, updateTimerDisplay, toggleSound, triggerTimerAlarm, silenceTimerAlarm, addTimerSeconds, triggerAttentionBell } from './utils/timer.js';
 import { renderLobby, addLobbyPlayer, addLobbyBatchPlayers, removeLobbyPlayer, renderLobbyPlayers, adjustRoleCount, renderRoleDeckGrid, getTotalDeckCount, updateDeckStatus, autoFillVillagers, loadLobbyPreset, clearRoleDeck } from './screens/lobby/lobby-screen.js';
 import { renderGameScreen, renderGameTopBar, startGameDirectNight1, startPhysicalCardGame, dealAndStartGame, confirmRestartGame, checkWinCondition, confirmExitToLobby } from './screens/game/game-screen.js';
 import { getActiveNightSteps, setCallerSubMode, syncCallerSubMode, renderNightCaller, cancelAutoAdvance, scheduleAutoAdvance, nextWizardStep, prevWizardStep } from './screens/game/night-caller.js';
@@ -19,7 +19,7 @@ import { toggleTableExpand, setupTableResizeObserver, renderTouchTable, setupPla
 import { handleCenterHubTap } from './screens/game/center-hub.js';
 import { handleWitchPotionBtnTap, handleWitchDirectPlayerTap, toggleWitchHealTouch, armWitchPoisonTouch, previewNightDeaths } from './screens/game/witch-potions.js';
 import { resolveNightAndStartDay, renderDayControls, addPlayerVote, decrementPlayerVote, resetAllVotes, executeCurrentLynchLeader, startNightPhase } from './screens/game/day-phase.js';
-import { smartAutoFillRemainingRoles, checkAutoFillLastUnknownRole, manualTriggerAutoFill, checkDoppelgangerTrigger } from './screens/game/autofill.js';
+import { smartAutoFillRemainingRoles, checkAutoFillLastUnknownRole, manualTriggerAutoFill, checkDoppelgangerTrigger, assignRandomPlayerForRole } from './screens/game/autofill.js';
 import { switchLogSubtab, addHistoryLog, renderHistoryTimeline, clearHistoryLog, renderRolesGuide } from './screens/log/log-roles.js';
 
 // --- Navigation Controller ---
@@ -58,6 +58,7 @@ function switchNavTab(tab) {
 // Wrapper delegators for UI event triggers
 function wrappedSheetSaveName(newName) { return sheetSaveName(newName, appCallbacks); }
 function wrappedSheetSetRole(newRole) { return sheetSetRole(newRole, appCallbacks); }
+function wrappedSheetAssignRandomRole() { return sheetAssignRandomRole(appCallbacks); }
 function wrappedSheetSetDoppelgangerTargetPrompt() { return sheetSetDoppelgangerTargetPrompt(appCallbacks); }
 function wrappedSheetToggleLife() { return sheetToggleLife(appCallbacks); }
 function wrappedSheetToggleMayor() { return sheetToggleMayor(appCallbacks); }
@@ -84,6 +85,7 @@ function wrappedSmartAutoFillRemainingRoles(explicit) { return smartAutoFillRema
 function wrappedCheckAutoFillLastUnknownRole() { return checkAutoFillLastUnknownRole(appCallbacks); }
 function wrappedManualTriggerAutoFill() { return manualTriggerAutoFill(appCallbacks); }
 function wrappedCheckDoppelgangerTrigger(id) { return checkDoppelgangerTrigger(id, appCallbacks); }
+function wrappedAssignRandomPlayerForRole(targetRole) { return assignRandomPlayerForRole(targetRole, appCallbacks); }
 function wrappedConfirmRestartGame() { return confirmRestartGame(appCallbacks); }
 function wrappedConfirmExitToLobby() { return confirmExitToLobby(appCallbacks); }
 function wrappedCheckWinCondition() { return checkWinCondition(appCallbacks); }
@@ -101,6 +103,7 @@ const appCallbacks = {
   addHistoryLog,
   smartAutoFillRemainingRoles: wrappedSmartAutoFillRemainingRoles,
   checkDoppelgangerTrigger: wrappedCheckDoppelgangerTrigger,
+  assignRandomPlayerForRole: wrappedAssignRandomPlayerForRole,
   triggerHunterRevenge,
   checkWinCondition: wrappedCheckWinCondition,
   pauseTimer,
@@ -145,6 +148,7 @@ const exposedExports = {
   closePlayerActionSheet,
   sheetSaveName: wrappedSheetSaveName,
   sheetSetRole: wrappedSheetSetRole,
+  sheetAssignRandomRole: wrappedSheetAssignRandomRole,
   sheetSetDoppelgangerTargetPrompt: wrappedSheetSetDoppelgangerTargetPrompt,
   sheetToggleLife: wrappedSheetToggleLife,
   sheetToggleMayor: wrappedSheetToggleMayor,
@@ -164,6 +168,10 @@ const exposedExports = {
   resetTimer,
   updateTimerDisplay,
   toggleSound,
+  triggerTimerAlarm,
+  silenceTimerAlarm,
+  addTimerSeconds,
+  triggerAttentionBell,
   renderLobby,
   addLobbyPlayer,
   addLobbyBatchPlayers,
@@ -214,6 +222,7 @@ const exposedExports = {
   checkAutoFillLastUnknownRole: wrappedCheckAutoFillLastUnknownRole,
   manualTriggerAutoFill: wrappedManualTriggerAutoFill,
   checkDoppelgangerTrigger: wrappedCheckDoppelgangerTrigger,
+  assignRandomPlayerForRole: wrappedAssignRandomPlayerForRole,
   switchLogSubtab,
   addHistoryLog,
   renderHistoryTimeline,
@@ -251,6 +260,7 @@ export {
   closePlayerActionSheet,
   wrappedSheetSaveName as sheetSaveName,
   wrappedSheetSetRole as sheetSetRole,
+  wrappedSheetAssignRandomRole as sheetAssignRandomRole,
   wrappedSheetSetDoppelgangerTargetPrompt as sheetSetDoppelgangerTargetPrompt,
   wrappedSheetToggleLife as sheetToggleLife,
   wrappedSheetToggleMayor as sheetToggleMayor,
@@ -270,6 +280,10 @@ export {
   resetTimer,
   updateTimerDisplay,
   toggleSound,
+  triggerTimerAlarm,
+  silenceTimerAlarm,
+  addTimerSeconds,
+  triggerAttentionBell,
   renderLobby,
   addLobbyPlayer,
   addLobbyBatchPlayers,
@@ -320,6 +334,7 @@ export {
   wrappedCheckAutoFillLastUnknownRole as checkAutoFillLastUnknownRole,
   wrappedManualTriggerAutoFill as manualTriggerAutoFill,
   wrappedCheckDoppelgangerTrigger as checkDoppelgangerTrigger,
+  wrappedAssignRandomPlayerForRole as assignRandomPlayerForRole,
   switchLogSubtab,
   addHistoryLog,
   renderHistoryTimeline,

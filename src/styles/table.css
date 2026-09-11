@@ -53,6 +53,114 @@
   padding: 0.2rem 0.65rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
+  transition: all 0.25s ease;
+}
+
+.game-timer-pill.timer-alarm-active {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+  animation: timerAlarmGlow 0.65s infinite alternate ease-in-out;
+}
+
+@keyframes timerAlarmGlow {
+  0% {
+    box-shadow: 0 0 5px rgba(239, 68, 68, 0.4), inset 0 0 4px rgba(239, 68, 68, 0.2);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.9), inset 0 0 10px rgba(239, 68, 68, 0.5);
+    transform: scale(1.05);
+  }
+}
+
+/* Moderator Attention Bell Button Animation */
+.bell-ringing {
+  animation: bellShake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  transform-origin: top center;
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.75) !important;
+}
+
+@keyframes bellShake {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(18deg); }
+  30% { transform: rotate(-18deg); }
+  45% { transform: rotate(12deg); }
+  60% { transform: rotate(-12deg); }
+  75% { transform: rotate(6deg); }
+  90% { transform: rotate(-6deg); }
+  100% { transform: rotate(0); }
+}
+
+/* Floating Timer Alarm Banner */
+.timer-alarm-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, rgba(35, 12, 18, 0.95), rgba(20, 10, 25, 0.95));
+  border: 1px solid rgba(239, 68, 68, 0.75);
+  box-shadow: 0 10px 30px rgba(239, 68, 68, 0.35), 0 0 12px rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-lg);
+  padding: 0.6rem 1rem;
+  margin: 0.5rem auto 0.75rem auto;
+  max-width: 580px;
+  width: calc(100% - 1rem);
+  backdrop-filter: blur(14px);
+  animation: bannerPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 100;
+}
+
+@keyframes bannerPopIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.alarm-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.alarm-banner-icon {
+  font-size: 1.6rem;
+  animation: alarmIconPulse 0.5s infinite alternate ease-in-out;
+}
+
+@keyframes alarmIconPulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.2); }
+}
+
+.alarm-banner-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.alarm-banner-text strong {
+  color: #f87171;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+}
+
+.alarm-banner-text span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.alarm-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
 }
 
 /* TABLE TOOLBAR & CONTROLS */

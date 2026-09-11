@@ -138,3 +138,50 @@ export function checkDoppelgangerTrigger(killedPlayerId, callbacks = {}) {
     }
   }
 }
+
+export function assignRandomPlayerForRole(targetRole, callbacks = {}) {
+  if (!gameState.inProgress) return null;
+
+  // Find living unassigned players
+  let eligible = gameState.players.filter(p => p.status === 'alive' && p.role === 'Unknown');
+  if (eligible.length === 0) {
+    eligible = gameState.players.filter(p => p.status === 'alive' && p.role !== targetRole);
+  }
+
+  if (eligible.length === 0) {
+    showGameToast(`No available players to assign as ${targetRole}.`);
+    return null;
+  }
+
+  const chosen = eligible[Math.floor(Math.random() * eligible.length)];
+  chosen.role = targetRole;
+
+  soundManager.playChime();
+  showGameToast(`🎲 Random: #${chosen.seat} ${chosen.name} assigned as ${targetRole}!`);
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Random Role', `Assigned #${chosen.seat} ${chosen.name} as ${targetRole}`);
+  }
+
+  // Check if role requirements are now satisfied
+  const holders = gameState.players.filter(p => p.role === targetRole);
+  const targetCount = getRoleTargetCount(targetRole, lobbyState);
+
+  if (holders.length >= targetCount && targetCount > 0) {
+    const steps = getActiveNightSteps();
+    const currentStep = steps ? steps[gameState.wizardStepIndex] : null;
+    if (currentStep && currentStep.hasSkill) {
+      uiState.callerSubMode = 'target';
+      uiState.userExplicitRoleMode = false;
+    }
+  }
+
+  saveAppState();
+
+  if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
+  else if (typeof globalThis.renderNightCaller === 'function') globalThis.renderNightCaller();
+
+  if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+  else if (typeof globalThis.renderTouchTable === 'function') globalThis.renderTouchTable();
+
+  return chosen;
+}

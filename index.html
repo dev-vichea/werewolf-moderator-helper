@@ -161,12 +161,30 @@
             <button id="game-timer-toggle" class="btn btn-primary" style="padding: 0.15rem 0.5rem; font-size: 0.75rem;" onclick="toggleTimer()">▶</button>
             <button class="btn btn-outline" style="padding: 0.15rem 0.4rem; font-size: 0.75rem;" onclick="resetTimer()">↺</button>
           </div>
+          <button id="moderator-bell-btn" class="btn btn-outline" style="padding: 0.25rem 0.55rem; font-size: 0.85rem; border-color: rgba(250, 204, 21, 0.45); color: #facc15;" onclick="triggerAttentionBell()" title="Attention Bell: Silence & Call Room to Order">
+            🔔
+          </button>
           <button class="btn btn-warning" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="confirmRestartGame()" title="Restart Game if mistake made">
             ↺ Restart
           </button>
           <button class="btn btn-outline btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="confirmExitToLobby()" title="Exit to Lobby">
             🏠 Exit
           </button>
+        </div>
+      </div>
+
+      <!-- TIMER EXPIRATION ALARM BANNER -->
+      <div id="timer-alarm-banner" class="timer-alarm-banner" style="display: none;">
+        <div class="alarm-banner-content">
+          <span class="alarm-banner-icon">🚨</span>
+          <div class="alarm-banner-text">
+            <strong>TIME IS UP!</strong>
+            <span>Discussion ended • Proceed to vote</span>
+          </div>
+        </div>
+        <div class="alarm-banner-actions">
+          <button class="btn btn-warning btn-sm" style="font-weight: 700;" onclick="addTimerSeconds(30)">+30s</button>
+          <button class="btn btn-danger btn-sm" style="font-weight: 700;" onclick="silenceTimerAlarm()">🔕 Silence</button>
         </div>
       </div>
 
@@ -354,6 +372,7 @@
         <button id="sheet-toggle-life-btn" class="btn btn-danger" onclick="sheetToggleLife()">💀 Kill / Revive</button>
         <button id="sheet-toggle-mayor-btn" class="btn btn-outline" onclick="sheetToggleMayor()">👑 Make Mayor</button>
         <button id="sheet-toggle-lover-btn" class="btn btn-outline" onclick="sheetToggleLover()">💘 Toggle Lover</button>
+        <button id="sheet-random-role-btn" class="btn btn-outline" style="border-color: rgba(168, 85, 247, 0.6); color: #c084fc; font-weight: 700;" onclick="sheetAssignRandomRole()">🎲 Random Role</button>
         <button class="btn btn-outline" onclick="sheetSeerReveal()">👁️ View Alignment</button>
       </div>
 

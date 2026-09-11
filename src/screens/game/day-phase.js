@@ -51,7 +51,7 @@ export function resolveNightAndStartDay(callbacks = {}) {
   gameState.timerRemaining = lobbyState.discussionTimer || 90;
   startTimer();
 
-  soundManager.playChime();
+  soundManager.playSunriseBell();
   saveAppState();
 
   // Instant direct DOM transition guarantee:

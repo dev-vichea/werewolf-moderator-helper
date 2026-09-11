@@ -170,8 +170,8 @@ export function renderTouchTable() {
           hubSubtitle = 'Ready! Tap to Next ▶';
           hubReady = true;
         } else {
-          hubSubtitle = `Set ${holders.length}/${targetCount}`;
-          hubReady = false;
+          hubSubtitle = '🎲 Tap: Random Player';
+          hubReady = true;
         }
       } else {
         const holders = gameState.players.filter(p => p.role === activeStep.targetRole);
@@ -184,8 +184,8 @@ export function renderTouchTable() {
             hubSubtitle = 'Ready! Tap Target 🎯';
             hubReady = true;
           } else {
-            hubSubtitle = `Set ${holders.length}/${targetCount} Role`;
-            hubReady = false;
+            hubSubtitle = '🎲 Tap: Random Player';
+            hubReady = true;
           }
         } else {
           if (activeStep.id === 'werewolves') {
