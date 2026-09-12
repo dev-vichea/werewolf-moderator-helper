@@ -5,7 +5,7 @@ export const ROLES_CATALOG = [
   { name: 'Werewolf', team: 'Werewolf', image: 'images/werewolf.jpeg', desc: 'Eliminates 1 villager each night.', defaultCount: 2 },
   { name: 'Seer', team: 'Town', image: 'images/seer.jpeg', desc: 'Inspects 1 player alignment per night.', defaultCount: 1 },
   { name: 'Bodyguard', team: 'Town', image: 'images/bodyguard.jpeg', desc: 'Protects 1 player each night from attack.', defaultCount: 1 },
-  { name: 'Witch', team: 'Town', image: 'images/witch.jpeg', desc: 'Has 1 heal potion and 1 poison potion.', defaultCount: 1 },
+  { name: 'Witch', team: 'Town', image: 'images/witch.jpeg', desc: 'Has 1 heal potion (saves wolf victim) and 1 poison potion (kills any player). Max 1 potion per night. Once both are used, Witch no longer wakes.', defaultCount: 1 },
   { name: 'Hunter', team: 'Town', image: 'images/hunter.jpeg', desc: 'If eliminated, immediately takes another player down with them.', defaultCount: 0 },
   { name: 'Cupid', team: 'Town', image: 'images/cupid.jpeg', desc: 'Pairs 2 lovers on Night 1.', defaultCount: 0 },
   { name: 'Mason', team: 'Town', image: 'images/mason.jpeg', desc: 'Masons know each other Night 1.', defaultCount: 0 },

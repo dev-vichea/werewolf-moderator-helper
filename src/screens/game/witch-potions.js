@@ -19,9 +19,10 @@ export function handleWitchPotionBtnTap(type, event, callbacks = {}) {
   }
 
   if (type === 'heal') {
+    // 1. Check if Heal potion was already used in an earlier night
     if (!gameState.potions.witchHealAvailable && !gameState.nightActions.witchHealed) {
       showCustomAlert('⚠️ The Healing Potion has already been used in this game!\n\nThe Witch can only use her healing potion once per game.', {
-        title: 'Potion Depleted',
+        title: 'Heal Depleted',
         icon: '💚',
         confirmText: 'Got It',
         confirmClass: 'btn-warning'
@@ -29,6 +30,18 @@ export function handleWitchPotionBtnTap(type, event, callbacks = {}) {
       return;
     }
 
+    // 2. Enforce: Max 1 potion per night (if Poison already used tonight)
+    if (gameState.nightActions.witchPoisonTarget) {
+      showCustomAlert('⚠️ The Witch can only use ONE potion per night!\n\nPoison was already used tonight. Cancel poison first to use the healing potion.', {
+        title: 'One Potion Per Night',
+        icon: '⚠️',
+        confirmText: 'Got It',
+        confirmClass: 'btn-warning'
+      });
+      return;
+    }
+
+    // 3. Toggle off if already healed tonight
     if (gameState.nightActions.witchHealed) {
       gameState.nightActions.witchHealed = false;
       gameState.nightActions.witchHealTarget = null;
@@ -40,26 +53,33 @@ export function handleWitchPotionBtnTap(type, event, callbacks = {}) {
       return;
     }
 
-    if (uiState.witchSelectionMode === 'heal') {
-      uiState.witchSelectionMode = null;
-      if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
-      if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+    // 4. Enforce: Heal strictly means heal who wolves killed
+    const wolfVictim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget && p.status === 'alive');
+    if (!wolfVictim) {
+      showCustomAlert('💚 Nobody was attacked by the Werewolves tonight!\n\nThe Healing Potion can only be used to save the player attacked by Werewolves.', {
+        title: 'No Wolf Victim',
+        icon: '💚',
+        confirmText: 'Got It',
+        confirmClass: 'btn-primary'
+      });
       return;
     }
 
-    uiState.witchSelectionMode = 'heal';
-    const victim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget);
-    if (victim) {
-      showGameToast(`💚 Heal Potion: Tap #${victim.seat} ${victim.name} (or any player) on the table to heal!`);
-    } else {
-      showGameToast('💚 Heal Potion: Tap a player on the table to heal!');
-    }
+    // Save the wolf victim directly!
+    gameState.nightActions.witchHealed = true;
+    gameState.nightActions.witchHealTarget = wolfVictim.id;
+    uiState.witchSelectionMode = null;
+    soundManager.playChime();
+    showGameToast(`💚 #${wolfVictim.seat} ${wolfVictim.name} was saved from Werewolves!`);
+    saveAppState();
     if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
     if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+
   } else if (type === 'poison') {
+    // 1. Check if Poison potion was already used in an earlier night
     if (!gameState.potions.witchPoisonAvailable && !gameState.nightActions.witchPoisonTarget) {
       showCustomAlert('⚠️ The Poison Potion has already been used in this game!\n\nThe Witch can only use her poison potion once per game.', {
-        title: 'Potion Depleted',
+        title: 'Poison Depleted',
         icon: '🧪',
         confirmText: 'Got It',
         confirmClass: 'btn-warning'
@@ -67,6 +87,18 @@ export function handleWitchPotionBtnTap(type, event, callbacks = {}) {
       return;
     }
 
+    // 2. Enforce: Max 1 potion per night (if Heal already used tonight)
+    if (gameState.nightActions.witchHealed) {
+      showCustomAlert('⚠️ The Witch can only use ONE potion per night!\n\nHealing potion was already used tonight. Cancel heal first to use the poison potion.', {
+        title: 'One Potion Per Night',
+        icon: '⚠️',
+        confirmText: 'Got It',
+        confirmClass: 'btn-warning'
+      });
+      return;
+    }
+
+    // 3. Toggle off if already targeted someone tonight
     if (gameState.nightActions.witchPoisonTarget) {
       const poisoned = gameState.players.find(p => p.id === gameState.nightActions.witchPoisonTarget);
       gameState.nightActions.witchPoisonTarget = null;
@@ -78,6 +110,7 @@ export function handleWitchPotionBtnTap(type, event, callbacks = {}) {
       return;
     }
 
+    // 4. Toggle off selection mode if currently arming
     if (uiState.witchSelectionMode === 'poison') {
       uiState.witchSelectionMode = null;
       if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
@@ -85,8 +118,9 @@ export function handleWitchPotionBtnTap(type, event, callbacks = {}) {
       return;
     }
 
+    // 5. Arm Poison: target who you want
     uiState.witchSelectionMode = 'poison';
-    showGameToast('🧪 Poison Potion: Tap a player on the table to eliminate with poison!');
+    showGameToast('🧪 Poison Potion: Tap any alive player on the table to eliminate!');
     if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
     if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
   }
@@ -100,10 +134,15 @@ export function handleWitchDirectPlayerTap(player, callbacks = {}) {
     return;
   }
 
+  if (player.status !== 'alive') {
+    showGameToast('⚠️ Cannot target deceased players.');
+    return;
+  }
+
   const healAvail = gameState.potions.witchHealAvailable && !gameState.nightActions.witchHealed;
   const poisonAvail = gameState.potions.witchPoisonAvailable && !gameState.nightActions.witchPoisonTarget;
 
-  if (!healAvail && !poisonAvail) {
+  if (!healAvail && !poisonAvail && !gameState.nightActions.witchHealed && !gameState.nightActions.witchPoisonTarget) {
     showCustomAlert('Both Witch potions have already been used in this game!', {
       title: 'No Potions Left',
       icon: '🧪',
@@ -112,68 +151,129 @@ export function handleWitchDirectPlayerTap(player, callbacks = {}) {
     return;
   }
 
+  // Check if a potion was ALREADY used tonight:
+  if (gameState.nightActions.witchHealed) {
+    if (player.id === (gameState.nightActions.witchHealTarget || gameState.nightActions.wolfTarget)) {
+      showCustomConfirm(`Cancel healing on #${player.seat} ${player.name}?`, {
+        title: 'Cancel Heal?',
+        icon: '💚',
+        confirmText: 'Cancel Heal',
+        confirmClass: 'btn-warning',
+        onConfirm: () => {
+          gameState.nightActions.witchHealed = false;
+          gameState.nightActions.witchHealTarget = null;
+          showGameToast('💚 Healing cancelled.');
+          saveAppState();
+          if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
+          if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+        }
+      });
+      return;
+    }
+    showCustomAlert('⚠️ The Witch can only use ONE potion per night!\n\nHealing potion was already used tonight. Cancel heal first if you want to use poison.', {
+      title: 'One Potion Per Night',
+      icon: '⚠️'
+    });
+    return;
+  }
+
+  if (gameState.nightActions.witchPoisonTarget) {
+    if (player.id === gameState.nightActions.witchPoisonTarget) {
+      showCustomConfirm(`Cancel poison on #${player.seat} ${player.name}?`, {
+        title: 'Cancel Poison?',
+        icon: '☠️',
+        confirmText: 'Cancel Poison',
+        confirmClass: 'btn-warning',
+        onConfirm: () => {
+          gameState.nightActions.witchPoisonTarget = null;
+          showGameToast('☠️ Poison cancelled.');
+          saveAppState();
+          if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
+          if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+        }
+      });
+      return;
+    }
+    showCustomAlert('⚠️ The Witch can only use ONE potion per night!\n\nPoison was already used tonight. Cancel poison first if you want to change targets or heal.', {
+      title: 'One Potion Per Night',
+      icon: '⚠️'
+    });
+    return;
+  }
+
+  // No potion used yet tonight:
   const isWolfVictim = (gameState.nightActions.wolfTarget === player.id);
-  if (isWolfVictim && healAvail) {
-    showCustomConfirm(`Use Witch's Healing Potion to save #${player.seat} ${player.name} from the Werewolf attack?`, {
-      title: 'Save Victim with Heal?',
+
+  if (isWolfVictim) {
+    // Player IS the wolf victim: offer Heal (or Poison if Heal unavailable)
+    if (healAvail) {
+      showCustomConfirm(`Use Witch's Healing Potion to save #${player.seat} ${player.name} from the Werewolf attack?`, {
+        title: 'Save Victim with Heal?',
+        icon: '💚',
+        confirmText: '💚 Yes, Heal Victim',
+        confirmClass: 'btn-success',
+        onConfirm: () => {
+          gameState.nightActions.witchHealed = true;
+          gameState.nightActions.witchHealTarget = player.id;
+          uiState.witchSelectionMode = null;
+          soundManager.playChime();
+          showGameToast(`💚 #${player.seat} ${player.name} was saved with Healing Potion!`);
+          saveAppState();
+          if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
+          if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+        }
+      });
+      return;
+    }
+
+    if (poisonAvail) {
+      showCustomConfirm(`Use Witch's Poison Potion to eliminate #${player.seat} ${player.name}?`, {
+        title: 'Poison Player?',
+        icon: '☠️',
+        confirmText: '☠️ Poison Player',
+        confirmClass: 'btn-danger-solid',
+        onConfirm: () => {
+          gameState.nightActions.witchPoisonTarget = player.id;
+          uiState.witchSelectionMode = null;
+          soundManager.playChime();
+          showGameToast(`☠️ #${player.seat} ${player.name} targeted for poison!`);
+          saveAppState();
+          if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
+          if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+        }
+      });
+      return;
+    }
+  } else {
+    // Player is NOT the wolf victim: they CANNOT be healed ("heal mean heal who wolve killed")
+    if (poisonAvail) {
+      showCustomConfirm(`Use Witch's Poison Potion to eliminate #${player.seat} ${player.name}?`, {
+        title: 'Poison Player?',
+        icon: '☠️',
+        confirmText: '☠️ Poison Player',
+        confirmClass: 'btn-danger-solid',
+        onConfirm: () => {
+          gameState.nightActions.witchPoisonTarget = player.id;
+          uiState.witchSelectionMode = null;
+          soundManager.playChime();
+          showGameToast(`☠️ #${player.seat} ${player.name} targeted for poison!`);
+          saveAppState();
+          if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
+          if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+        }
+      });
+      return;
+    }
+
+    // Poison is already depleted and this player is not the wolf victim
+    const wolfVictim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget);
+    showCustomAlert(`⚠️ The Healing Potion can ONLY save the player attacked by Werewolves tonight (${wolfVictim ? '#' + wolfVictim.seat + ' ' + wolfVictim.name : 'Nobody'})!\n\nAnd the Poison potion has already been used in this game.`, {
+      title: 'Cannot Heal Player',
       icon: '💚',
-      confirmText: '💚 Yes, Heal Player',
-      confirmClass: 'btn-success',
-      onConfirm: () => {
-        gameState.nightActions.witchHealed = true;
-        gameState.nightActions.witchHealTarget = player.id;
-        uiState.witchSelectionMode = null;
-        soundManager.playChime();
-        showGameToast(`💚 #${player.seat} ${player.name} was saved with Healing Potion!`);
-        saveAppState();
-        if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
-        if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
-      }
+      confirmText: 'Got It'
     });
     return;
   }
-
-  if (!healAvail && poisonAvail) {
-    showCustomConfirm(`Use Witch's Poison Potion to eliminate #${player.seat} ${player.name}?`, {
-      title: 'Poison Player?',
-      icon: '☠️',
-      confirmText: '☠️ Poison Player',
-      confirmClass: 'btn-danger-solid',
-      onConfirm: () => {
-        gameState.nightActions.witchPoisonTarget = player.id;
-        uiState.witchSelectionMode = null;
-        soundManager.playChime();
-        showGameToast(`☠️ #${player.seat} ${player.name} targeted for poison!`);
-        saveAppState();
-        if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
-        if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
-      }
-    });
-    return;
-  }
-
-  if (healAvail && !poisonAvail) {
-    showCustomConfirm(`Use Witch's Healing Potion on #${player.seat} ${player.name}?`, {
-      title: 'Heal Player?',
-      icon: '💚',
-      confirmText: '💚 Heal Player',
-      confirmClass: 'btn-success',
-      onConfirm: () => {
-        gameState.nightActions.witchHealed = true;
-        gameState.nightActions.witchHealTarget = player.id;
-        uiState.witchSelectionMode = null;
-        soundManager.playChime();
-        showGameToast(`💚 #${player.seat} ${player.name} healed!`);
-        saveAppState();
-        if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
-        if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
-      }
-    });
-    return;
-  }
-
-  // Both potions available: remind moderator to select which potion in center hub first
-  showGameToast('👉 Tap 💚 Heal Potion or 🧪 Poison Potion in the center of the table first!');
 }
 
 export function toggleWitchHealTouch(callbacks = {}) {

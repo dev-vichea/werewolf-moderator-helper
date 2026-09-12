@@ -721,6 +721,18 @@
   animation: none !important;
 }
 
+/* Locked for tonight because the other potion was used */
+.witch-hub-btn.disabled-night {
+  opacity: 0.45 !important;
+  filter: grayscale(0.6);
+  cursor: pointer;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+  background: rgba(30, 41, 59, 0.65) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  animation: none !important;
+}
+
 @keyframes witchPotionPulseGreen {
   0% { transform: scale(1); box-shadow: 0 0 18px rgba(52, 211, 153, 0.5); }
   100% { transform: scale(1.12); box-shadow: 0 0 36px rgba(52, 211, 153, 0.95), inset 0 0 14px rgba(52, 211, 153, 0.5); }

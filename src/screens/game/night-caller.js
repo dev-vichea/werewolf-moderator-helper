@@ -111,7 +111,8 @@ export function getActiveNightSteps() {
     actionName: 'Kill Victim'
   });
 
-  if (isRoleInGame('Witch')) {
+  const witchPotionsDepleted = (gameState.potions && !gameState.potions.witchHealAvailable && !gameState.potions.witchPoisonAvailable);
+  if (isRoleInGame('Witch') && !witchPotionsDepleted) {
     steps.push({
       id: 'witch',
       targetRole: 'Witch',
@@ -481,21 +482,69 @@ export function renderNightCaller() {
       if (witchControls) witchControls.style.display = 'flex';
       const victim = gameState.players.find(x => x.id === gameState.nightActions.wolfTarget);
       const victimName = victim ? `#${victim.seat} ${victim.name}` : 'Nobody';
-      if (instructionText) instructionText.innerHTML = `Attacked victim: <strong style="color: #f87171; margin-left: 0.25rem;">${victimName}</strong>`;
+
+      const healAvail = gameState.potions.witchHealAvailable;
+      const poisonAvail = gameState.potions.witchPoisonAvailable;
+      const alreadyHealed = Boolean(gameState.nightActions.witchHealed);
+      const alreadyPoisoned = Boolean(gameState.nightActions.witchPoisonTarget);
+
+      if (instructionText) {
+        if (alreadyHealed) {
+          instructionText.innerHTML = `💚 <strong>Healed: ${victimName}</strong> <span style="color: #cbd5e1; font-size: 0.85em;">(Limit: 1 potion per night)</span>`;
+        } else if (alreadyPoisoned) {
+          const poisonedP = gameState.players.find(p => p.id === gameState.nightActions.witchPoisonTarget);
+          instructionText.innerHTML = `☠️ <strong>Poisoned: #${poisonedP ? poisonedP.seat + ' ' + poisonedP.name : 'Player'}</strong> <span style="color: #cbd5e1; font-size: 0.85em;">(Limit: 1 potion per night)</span>`;
+        } else {
+          instructionText.innerHTML = `Attacked victim: <strong style="color: ${victim ? '#f87171' : '#4ade80'}; margin-left: 0.25rem;">${victimName}</strong>`;
+        }
+      }
 
       const healBtn = document.getElementById('witch-heal-btn');
       const poisonBtn = document.getElementById('witch-poison-btn');
 
       if (healBtn) {
-        healBtn.className = gameState.nightActions.witchHealed ? 'btn btn-success' : 'btn btn-outline btn-success';
-        healBtn.textContent = gameState.nightActions.witchHealed ? '💚 Saved with Heal' : '💚 Heal Victim';
-        healBtn.disabled = !gameState.potions.witchHealAvailable && !gameState.nightActions.witchHealed;
+        if (alreadyHealed) {
+          healBtn.className = 'btn btn-success';
+          healBtn.textContent = '💚 Saved Victim (Cancel)';
+          healBtn.disabled = false;
+        } else if (!healAvail) {
+          healBtn.className = 'btn btn-outline';
+          healBtn.textContent = '💚 Heal (Used)';
+          healBtn.disabled = true;
+        } else if (alreadyPoisoned) {
+          healBtn.className = 'btn btn-outline';
+          healBtn.textContent = '💚 Heal (Locked: 1/Night)';
+          healBtn.disabled = false;
+        } else if (!victim) {
+          healBtn.className = 'btn btn-outline';
+          healBtn.textContent = '💚 Heal (No Victim)';
+          healBtn.disabled = false;
+        } else {
+          healBtn.className = 'btn btn-outline btn-success';
+          healBtn.textContent = '💚 Heal Victim';
+          healBtn.disabled = false;
+        }
       }
 
       if (poisonBtn) {
-        poisonBtn.className = gameState.nightActions.witchArmPoison ? 'btn btn-danger' : 'btn btn-outline btn-danger';
-        poisonBtn.textContent = gameState.nightActions.witchPoisonTarget ? `☠️ Poisoned: ${gameState.players.find(p=>p.id===gameState.nightActions.witchPoisonTarget)?.name}` : (gameState.nightActions.witchArmPoison ? '👉 Tap target to poison!' : '🧪 Poison Player');
-        poisonBtn.disabled = !gameState.potions.witchPoisonAvailable && !gameState.nightActions.witchPoisonTarget;
+        if (alreadyPoisoned) {
+          const p = gameState.players.find(x => x.id === gameState.nightActions.witchPoisonTarget);
+          poisonBtn.className = 'btn btn-danger';
+          poisonBtn.textContent = `☠️ Poison: ${p ? p.name : 'Target'} (Cancel)`;
+          poisonBtn.disabled = false;
+        } else if (!poisonAvail) {
+          poisonBtn.className = 'btn btn-outline';
+          poisonBtn.textContent = '🧪 Poison (Used)';
+          poisonBtn.disabled = true;
+        } else if (alreadyHealed) {
+          poisonBtn.className = 'btn btn-outline';
+          poisonBtn.textContent = '🧪 Poison (Locked: 1/Night)';
+          poisonBtn.disabled = false;
+        } else {
+          poisonBtn.className = uiState.witchSelectionMode === 'poison' ? 'btn btn-danger' : 'btn btn-outline btn-danger';
+          poisonBtn.textContent = uiState.witchSelectionMode === 'poison' ? '👉 Tap target on table' : '🧪 Poison Player';
+          poisonBtn.disabled = false;
+        }
       }
     } else if (step.id === 'doppelganger') {
       if (instructionText) instructionText.innerHTML = `<span>🎭</span> <strong>Doppelganger: Tap a deceased player on the table to inherit their role:</strong>`;

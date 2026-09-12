@@ -377,16 +377,16 @@ export function renderTouchTable() {
       if (healBtn) {
         if (!gameState.potions.witchHealAvailable && !gameState.nightActions.witchHealed) {
           healBtn.className = 'witch-hub-btn heal disabled';
-          healBtn.title = 'Heal Potion (Used)';
+          healBtn.title = 'Heal Potion (Used in earlier night)';
           if (healBadge) healBadge.style.display = 'none';
           if (healTitle) healTitle.textContent = 'Heal Potion';
           if (healDesc) healDesc.textContent = 'Used (0 Left)';
-        } else if (uiState.witchSelectionMode === 'heal') {
-          healBtn.className = 'witch-hub-btn heal selecting';
-          healBtn.title = 'Healing... Tap player on table';
+        } else if (gameState.nightActions.witchPoisonTarget) {
+          healBtn.className = 'witch-hub-btn heal disabled-night';
+          healBtn.title = 'Locked: Poison already used tonight (1 potion/night limit)';
           if (healBadge) healBadge.style.display = 'none';
-          if (healTitle) healTitle.textContent = 'Healing...';
-          if (healDesc) healDesc.textContent = '👉 Tap Player';
+          if (healTitle) healTitle.textContent = 'Heal Potion';
+          if (healDesc) healDesc.textContent = 'Locked (1/night)';
         } else if (gameState.nightActions.witchHealed) {
           healBtn.className = 'witch-hub-btn heal active-used';
           const hPlayer = gameState.players.find(p => p.id === (gameState.nightActions.witchHealTarget || gameState.nightActions.wolfTarget));
@@ -397,12 +397,18 @@ export function renderTouchTable() {
           }
           if (healTitle) healTitle.textContent = `💚 Saved #${hPlayer ? hPlayer.seat : ''}`;
           if (healDesc) healDesc.textContent = `${hPlayer ? hPlayer.name : 'Victim'} (Cancel)`;
-        } else {
+        } else if (!victim) {
           healBtn.className = 'witch-hub-btn heal ready';
-          healBtn.title = 'Heal Potion (Ready - Tap to use)';
+          healBtn.title = 'Nobody attacked by wolves tonight';
           if (healBadge) healBadge.style.display = 'none';
           if (healTitle) healTitle.textContent = 'Heal Potion';
-          if (healDesc) healDesc.textContent = '1 Left (Ready)';
+          if (healDesc) healDesc.textContent = 'No Victim';
+        } else {
+          healBtn.className = 'witch-hub-btn heal ready';
+          healBtn.title = `Save victim #${victim.seat} ${victim.name} (Tap to save)`;
+          if (healBadge) healBadge.style.display = 'none';
+          if (healTitle) healTitle.textContent = 'Heal Potion';
+          if (healDesc) healDesc.textContent = `Save #${victim.seat}`;
         }
       }
 
@@ -414,10 +420,16 @@ export function renderTouchTable() {
       if (poisonBtn) {
         if (!gameState.potions.witchPoisonAvailable && !gameState.nightActions.witchPoisonTarget) {
           poisonBtn.className = 'witch-hub-btn poison disabled';
-          poisonBtn.title = 'Poison Potion (Used)';
+          poisonBtn.title = 'Poison Potion (Used in earlier night)';
           if (poisonBadge) poisonBadge.style.display = 'none';
           if (poisonTitle) poisonTitle.textContent = 'Poison Potion';
           if (poisonDesc) poisonDesc.textContent = 'Used (0 Left)';
+        } else if (gameState.nightActions.witchHealed) {
+          poisonBtn.className = 'witch-hub-btn poison disabled-night';
+          poisonBtn.title = 'Locked: Heal already used tonight (1 potion/night limit)';
+          if (poisonBadge) poisonBadge.style.display = 'none';
+          if (poisonTitle) poisonTitle.textContent = 'Poison Potion';
+          if (poisonDesc) poisonDesc.textContent = 'Locked (1/night)';
         } else if (uiState.witchSelectionMode === 'poison') {
           poisonBtn.className = 'witch-hub-btn poison selecting';
           poisonBtn.title = 'Poisoning... Tap player on table';
@@ -436,7 +448,7 @@ export function renderTouchTable() {
           if (poisonDesc) poisonDesc.textContent = `${pPlayer ? pPlayer.name : ''} (Cancel)`;
         } else {
           poisonBtn.className = 'witch-hub-btn poison ready';
-          poisonBtn.title = 'Poison Potion (Ready - Tap to use)';
+          poisonBtn.title = 'Poison Potion (Ready - Tap to arm)';
           if (poisonBadge) poisonBadge.style.display = 'none';
           if (poisonTitle) poisonTitle.textContent = 'Poison Potion';
           if (poisonDesc) poisonDesc.textContent = '1 Left (Ready)';
@@ -889,6 +901,20 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
     renderTouchTable();
   } else if (currentStep.id === 'witch') {
     if (uiState.witchSelectionMode === 'heal') {
+      if (gameState.nightActions.witchPoisonTarget) {
+        soundManager.playBeep();
+        showCustomAlert('⚠️ The Witch can only use ONE potion per night!\n\nPoison was already used tonight. Cancel poison first to use the healing potion.', {
+          title: 'One Potion Per Night',
+          icon: '⚠️'
+        });
+        return;
+      }
+      if (playerId !== gameState.nightActions.wolfTarget) {
+        soundManager.playBeep();
+        const wolfVictim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget);
+        showGameToast(`⚠️ The Witch can only heal the werewolf victim (${wolfVictim ? '#' + wolfVictim.seat + ' ' + wolfVictim.name : 'Nobody'})!`);
+        return;
+      }
       gameState.nightActions.witchHealed = true;
       gameState.nightActions.witchHealTarget = playerId;
       uiState.witchSelectionMode = null;
@@ -899,6 +925,19 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
       renderTouchTable();
       return;
     } else if (uiState.witchSelectionMode === 'poison' || gameState.nightActions.witchArmPoison) {
+      if (player.status !== 'alive') {
+        soundManager.playBeep();
+        showGameToast('⚠️ Cannot poison deceased players.');
+        return;
+      }
+      if (gameState.nightActions.witchHealed) {
+        soundManager.playBeep();
+        showCustomAlert('⚠️ The Witch can only use ONE potion per night!\n\nHealing potion was already used tonight. Cancel heal first to use the poison potion.', {
+          title: 'One Potion Per Night',
+          icon: '⚠️'
+        });
+        return;
+      }
       gameState.nightActions.witchPoisonTarget = (gameState.nightActions.witchPoisonTarget === playerId) ? null : playerId;
       uiState.witchSelectionMode = null;
       gameState.nightActions.witchArmPoison = false;
@@ -906,6 +945,8 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
       if (gameState.nightActions.witchPoisonTarget) {
         soundManager.playChime();
         showGameToast(`☠️ #${player.seat} ${player.name} targeted for poison!`);
+      } else {
+        showGameToast('☠️ Poison cancelled.');
       }
       saveAppState();
       renderNightCaller();
