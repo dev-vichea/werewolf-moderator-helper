@@ -184,6 +184,20 @@ export function armWitchPoisonTouch(callbacks = {}) {
   handleWitchPotionBtnTap('poison', null, callbacks);
 }
 
+export function getInfectedCursedPlayer() {
+  if (!gameState.nightActions || !gameState.nightActions.wolfTarget) return null;
+  const victim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget);
+  if (!victim || victim.role !== 'Cursed' || victim.status !== 'alive') return null;
+
+  const savedByGuard = (gameState.nightActions.bodyguardTarget === victim.id);
+  const savedByWitch = gameState.nightActions.witchHealed && (!gameState.nightActions.witchHealTarget || gameState.nightActions.witchHealTarget === victim.id);
+
+  if (!savedByGuard && !savedByWitch) {
+    return victim;
+  }
+  return null;
+}
+
 export function previewNightDeaths() {
   const deaths = [];
 
@@ -194,7 +208,8 @@ export function previewNightDeaths() {
       const savedByWitch = gameState.nightActions.witchHealed && (!gameState.nightActions.witchHealTarget || gameState.nightActions.witchHealTarget === victim.id);
 
       if (victim.role === 'Cursed' && !savedByGuard && !savedByWitch) {
-        victim.role = 'Werewolf';
+        // Cursed player survives the wolf attack and will be infected into a Werewolf at dawn!
+        // Do NOT add to deaths and do NOT mutate role during preview calls.
       } else if (!savedByGuard && !savedByWitch) {
         deaths.push({ id: victim.id, name: victim.name, reason: 'Killed by Werewolves' });
       }

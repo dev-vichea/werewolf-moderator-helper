@@ -10,7 +10,7 @@ import { showCustomAlert } from '../../ui/dialog.js';
 import { showGameToast } from '../../ui/toast.js';
 import { getEvenlySpacedEllipseAngles } from '../../utils/math.js';
 import { openPlayerActionSheet } from '../../ui/modal/action-sheet.js';
-import { previewNightDeaths, handleWitchDirectPlayerTap } from './witch-potions.js';
+import { previewNightDeaths, getInfectedCursedPlayer, handleWitchDirectPlayerTap } from './witch-potions.js';
 import { getActiveNightSteps, setCallerSubMode, cancelAutoAdvance, scheduleAutoAdvance, nextWizardStep, renderNightCaller, isStepRoleDead } from './night-caller.js';
 import { addPlayerVote, renderDayControls } from './day-phase.js';
 import { smartAutoFillRemainingRoles } from './autofill.js';
@@ -152,9 +152,14 @@ export function renderTouchTable() {
         hubSubtitle = 'In Progress';
       } else if (activeStep.id === 'resolution') {
         const deaths = previewNightDeaths();
+        const infectedCursed = getInfectedCursedPlayer();
         hubEmoji = '☀️';
         hubTitle = 'Sunrise';
-        hubSubtitle = deaths.length > 0 ? `💀 ${deaths.length} Dead • Tap ☀️` : 'Peaceful • Tap ☀️';
+        if (infectedCursed && !deaths.some(d => d.id === infectedCursed.id)) {
+          hubSubtitle = deaths.length > 0 ? `💀 ${deaths.length} Dead • 🐺 Cursed Bitten • Tap ☀️` : `🐺 #${infectedCursed.seat} Turns Wolf • Tap ☀️`;
+        } else {
+          hubSubtitle = deaths.length > 0 ? `💀 ${deaths.length} Dead • Tap ☀️` : 'Peaceful • Tap ☀️';
+        }
         hubReady = true;
       } else if (isStepRoleDead(activeStep)) {
         hubEmoji = '💀';
@@ -569,6 +574,7 @@ export function renderTouchTable() {
         case 'Mason': turnBadgeText = '🤝 MASON'; break;
         case 'Spellcaster': turnBadgeText = '✨ SILENCE'; break;
         case 'Doppelganger': turnBadgeText = '🎭 MIMIC'; break;
+        case 'Cursed': turnBadgeText = '🧟 CURSED'; break;
         default: turnBadgeText = '👁️ ACTIVE'; break;
       }
     }

@@ -17,7 +17,7 @@ import { renderGameScreen, renderGameTopBar, startGameDirectNight1, startPhysica
 import { getActiveNightSteps, setCallerSubMode, syncCallerSubMode, renderNightCaller, cancelAutoAdvance, scheduleAutoAdvance, nextWizardStep, prevWizardStep } from './screens/game/night-caller.js';
 import { toggleTableExpand, setupTableResizeObserver, renderTouchTable, setupPlayerNodeHold, handleTableNodeTap } from './screens/game/table.js';
 import { handleCenterHubTap } from './screens/game/center-hub.js';
-import { handleWitchPotionBtnTap, handleWitchDirectPlayerTap, toggleWitchHealTouch, armWitchPoisonTouch, previewNightDeaths } from './screens/game/witch-potions.js';
+import { handleWitchPotionBtnTap, handleWitchDirectPlayerTap, toggleWitchHealTouch, armWitchPoisonTouch, previewNightDeaths, getInfectedCursedPlayer } from './screens/game/witch-potions.js';
 import { resolveNightAndStartDay, renderDayControls, addPlayerVote, decrementPlayerVote, resetAllVotes, executeCurrentLynchLeader, startNightPhase } from './screens/game/day-phase.js';
 import { smartAutoFillRemainingRoles, checkAutoFillLastUnknownRole, manualTriggerAutoFill, checkDoppelgangerTrigger, assignRandomPlayerForRole } from './screens/game/autofill.js';
 import { switchLogSubtab, addHistoryLog, renderHistoryTimeline, clearHistoryLog, renderRolesGuide } from './screens/log/log-roles.js';
@@ -215,6 +215,7 @@ const exposedExports = {
   toggleWitchHealTouch: wrappedToggleWitchHealTouch,
   armWitchPoisonTouch: wrappedArmWitchPoisonTouch,
   previewNightDeaths,
+  getInfectedCursedPlayer,
   resolveNightAndStartDay: wrappedResolveNightAndStartDay,
   renderDayControls,
   addPlayerVote: wrappedAddPlayerVote,
@@ -329,6 +330,7 @@ export {
   wrappedToggleWitchHealTouch as toggleWitchHealTouch,
   wrappedArmWitchPoisonTouch as armWitchPoisonTouch,
   previewNightDeaths,
+  getInfectedCursedPlayer,
   wrappedResolveNightAndStartDay as resolveNightAndStartDay,
   renderDayControls,
   wrappedAddPlayerVote as addPlayerVote,

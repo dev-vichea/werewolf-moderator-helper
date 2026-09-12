@@ -23,6 +23,9 @@ export function parseDialogMeta(message, customTitle, customIcon) {
     } else if (text.includes('DOPPELGANGER TRANSFORMED') || text.includes('DOPPELGANGER TRIGGER') || text.includes('Doppelganger')) {
       icon = icon || '🎭';
       title = title || 'Doppelganger';
+    } else if (text.includes('CURSED') || text.includes('Cursed Infected')) {
+      icon = icon || '🐺';
+      title = title || '🐺 Cursed Infected!';
     } else if (text.includes('PRINCE')) {
       icon = icon || '👑';
       title = title || 'Prince Royalty';
@@ -95,11 +98,19 @@ export function showCustomAlert(message, options = {}) {
       titleEl.style.color = '#34d399';
     } else if (meta.title.includes('🔴')) {
       titleEl.style.color = '#f87171';
+    } else if (meta.title.includes('Cursed') || meta.title.includes('Infected')) {
+      titleEl.style.color = '#c084fc';
     } else {
       titleEl.style.color = '#f8fafc';
     }
   }
-  if (bodyEl) bodyEl.textContent = meta.text;
+  if (bodyEl) {
+    if (/<[a-z][\s\S]*>/i.test(meta.text)) {
+      bodyEl.innerHTML = meta.text;
+    } else {
+      bodyEl.textContent = meta.text;
+    }
+  }
 
   if (cancelBtn) cancelBtn.style.display = 'none';
 
@@ -121,6 +132,9 @@ export function showCustomAlert(message, options = {}) {
       } else if (meta.title.includes('🔴')) {
         cardEl.style.borderColor = '#ef4444';
         cardEl.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.75), 0 0 35px rgba(239, 68, 68, 0.4)';
+      } else if (meta.title.includes('Cursed') || meta.title.includes('Infected')) {
+        cardEl.style.borderColor = '#c084fc';
+        cardEl.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.75), 0 0 35px rgba(192, 132, 252, 0.45)';
       } else {
         cardEl.style.borderColor = '';
         cardEl.style.boxShadow = '';
@@ -180,7 +194,13 @@ export function showCustomConfirm(message, options = {}) {
 
     iconEl.textContent = meta.icon;
     titleEl.textContent = meta.title;
-    bodyEl.textContent = meta.text;
+    if (bodyEl) {
+      if (/<[a-z][\s\S]*>/i.test(meta.text)) {
+        bodyEl.innerHTML = meta.text;
+      } else {
+        bodyEl.textContent = meta.text;
+      }
+    }
 
     if (cancelBtn) {
       cancelBtn.style.display = 'inline-flex';

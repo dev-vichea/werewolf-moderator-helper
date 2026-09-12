@@ -5,7 +5,7 @@ import { gameState, lobbyState, uiState } from '../../state/store.js';
 import { isRoleInGame as checkRoleInGame, getRoleTargetCount as checkRoleTargetCount } from '../../state/roles.js';
 import { soundManager } from '../../audio/sound.js';
 import { saveAppState } from '../../state/storage.js';
-import { previewNightDeaths } from './witch-potions.js';
+import { previewNightDeaths, getInfectedCursedPlayer } from './witch-potions.js';
 
 let autoAdvanceTimeout = null;
 
@@ -81,6 +81,20 @@ export function getActiveNightSteps() {
         script: `"Hunter, open your eyes so the moderator knows who you are. Hunter, close your eyes."`,
         hasSkill: false,
         actionName: 'Recognize Hunter',
+        night1Only: true
+      });
+    }
+
+    // Cursed (Night 1 recognition only)
+    if (isRoleInGame('Cursed')) {
+      steps.push({
+        id: 'cursed',
+        targetRole: 'Cursed',
+        name: 'Cursed',
+        icon: '🧟',
+        script: `"Cursed, open your eyes so the moderator knows who you are. Cursed, close your eyes."`,
+        hasSkill: false,
+        actionName: 'Recognize Cursed',
         night1Only: true
       });
     }
@@ -257,12 +271,19 @@ export function renderNightCaller() {
   // Sunrise Resolution Step
   if (step.id === 'resolution') {
     const deaths = previewNightDeaths();
-    const summary = deaths.length > 0 ? deaths.map(d => `${d.name} (${d.reason})`).join(', ') : 'Nobody died!';
+    const infectedCursed = getInfectedCursedPlayer();
+    let summary = deaths.length > 0 ? deaths.map(d => `${d.name} (${d.reason})`).join(', ') : 'Nobody died!';
+    if (infectedCursed && !deaths.some(d => d.id === infectedCursed.id)) {
+      summary += ` • 🐺 #${infectedCursed.seat} ${infectedCursed.name} turns Werewolf!`;
+    }
     if (modePillsEl) {
-      modePillsEl.innerHTML = `<span class="caller-mode-btn active" style="cursor: default; background: ${deaths.length > 0 ? 'rgba(239,68,68,0.25)' : 'rgba(16,185,129,0.25)'}; border-color: ${deaths.length > 0 ? '#f87171' : '#34d399'}; color: white;">☀️ Casualties: <strong>${summary}</strong></span>`;
+      const pillBg = deaths.length > 0 ? 'rgba(239,68,68,0.25)' : (infectedCursed ? 'rgba(168,85,247,0.25)' : 'rgba(16,185,129,0.25)');
+      const pillBorder = deaths.length > 0 ? '#f87171' : (infectedCursed ? '#c084fc' : '#34d399');
+      modePillsEl.innerHTML = `<span class="caller-mode-btn active" style="cursor: default; background: ${pillBg}; border-color: ${pillBorder}; color: white;">☀️ Casualties: <strong>${summary}</strong></span>`;
     }
     if (instructionText) {
-      instructionText.innerHTML = `Casualties: <strong style="color: ${deaths.length > 0 ? '#f87171' : '#4ade80'}; margin-left: 0.3rem;">${summary}</strong>`;
+      const textColor = deaths.length > 0 ? '#f87171' : (infectedCursed ? '#c084fc' : '#4ade80');
+      instructionText.innerHTML = `Casualties: <strong style="color: ${textColor}; margin-left: 0.3rem;">${summary}</strong>`;
     }
     if (nextBtn) nextBtn.style.display = 'none';
     if (resolveBtn) {

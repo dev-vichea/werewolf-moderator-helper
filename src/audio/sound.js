@@ -208,6 +208,27 @@ export class SoundManager {
       osc.stop(now + b.time + b.dur);
     });
   }
+
+  playWolfHowl() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.linearRampToValueAtTime(380, now + 0.5);
+    osc.frequency.exponentialRampToValueAtTime(140, now + 2.0);
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.linearRampToValueAtTime(0.24, now + 0.3);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 2.0);
+  }
 }
 
 export const soundManager = new SoundManager();

@@ -7,7 +7,7 @@ import { saveAppState } from '../../state/storage.js';
 import { showCustomAlert, showCustomConfirm } from '../../ui/dialog.js';
 import { showGameToast } from '../../ui/toast.js';
 import { startTimer, pauseTimer } from '../../utils/timer.js';
-import { previewNightDeaths } from './witch-potions.js';
+import { previewNightDeaths, getInfectedCursedPlayer } from './witch-potions.js';
 import { smartAutoFillRemainingRoles, checkDoppelgangerTrigger } from './autofill.js';
 import { triggerHunterRevenge } from '../../ui/modal/hunter-modal.js';
 import { showWinOverlay } from '../../ui/modal/win-modal.js';
@@ -15,12 +15,33 @@ import { showWinOverlay } from '../../ui/modal/win-modal.js';
 export function resolveNightAndStartDay(callbacks = {}) {
   if (typeof callbacks.cancelAutoAdvance === 'function') callbacks.cancelAutoAdvance();
   const deaths = previewNightDeaths();
+  const infectedCursed = getInfectedCursedPlayer();
 
   deaths.forEach(d => {
     const p = gameState.players.find(x => x.id === d.id);
     if (p) p.status = 'dead';
     checkDoppelgangerTrigger(d.id, callbacks);
   });
+
+  // Handle Cursed Infection at Sunrise:
+  if (infectedCursed && !deaths.some(d => d.id === infectedCursed.id)) {
+    infectedCursed.role = 'Werewolf';
+    if (typeof callbacks.addHistoryLog === 'function') {
+      callbacks.addHistoryLog('Cursed Infected', `#${infectedCursed.seat} ${infectedCursed.name} was attacked by Werewolves and has turned into a Werewolf!`);
+    }
+    if (typeof soundManager.playWolfHowl === 'function') {
+      soundManager.playWolfHowl();
+    }
+    showCustomAlert(
+      `<strong>#${infectedCursed.seat} ${infectedCursed.name}</strong> was attacked by the Werewolves tonight.<br><br>Instead of dying, their curse activated and they turned into an active <strong>Werewolf</strong>!<br><br><span style="color: #94a3b8; font-size: 0.88em;"><em>(Secretly notify them, or have them open eyes with Werewolves tonight!)</em></span>`,
+      {
+        title: 'Cursed Infected!',
+        icon: '🐺',
+        confirmText: 'Understood',
+        confirmClass: 'btn-danger'
+      }
+    );
+  }
 
   if (gameState.nightActions.witchHealed) gameState.potions.witchHealAvailable = false;
   if (gameState.nightActions.witchPoisonTarget) gameState.potions.witchPoisonAvailable = false;
