@@ -770,15 +770,16 @@
   color: white;
 }
 
-/* PLAYER NODES ON TABLE */
+/* PLAYER NODES ON TABLE (VERTICAL PLAYING CARDS) */
 .table-touch-node {
   position: absolute;
-  width: 108px;
-  padding: 0.45rem 0.3rem;
-  border-radius: var(--radius-md);
-  background: var(--bg-glass-card);
-  border: 1.5px solid var(--border-medium);
-  box-shadow: var(--shadow-md);
+  width: 86px;
+  height: 120px;
+  padding: 0;
+  border-radius: 10px;
+  background: #0f172a;
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65), 0 0 10px rgba(0, 0, 0, 0.35);
   text-align: center;
   transform: translate3d(-50%, -50%, 0);
   cursor: pointer;
@@ -788,16 +789,26 @@
   align-items: center;
   transition: left 0.55s cubic-bezier(0.34, 1.56, 0.64, 1),
               top 0.55s cubic-bezier(0.34, 1.56, 0.64, 1),
+              width 0.3s ease,
+              height 0.3s ease,
               transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
               border-color 0.3s ease,
               box-shadow 0.3s ease,
               opacity 0.35s ease,
               filter 0.35s ease;
   z-index: 5;
+  box-sizing: border-box;
+}
+
+.table-touch-node:hover {
+  transform: translate3d(-50%, -50%, 0) scale(1.05);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.75), 0 0 16px rgba(168, 85, 247, 0.4);
+  border-color: rgba(168, 85, 247, 0.6);
+  z-index: 12;
 }
 
 .table-touch-node:active {
-  transform: translate3d(-50%, -50%, 0) scale(1.08);
+  transform: translate3d(-50%, -50%, 0) scale(0.96);
 }
 
 /* Target Highlights */
@@ -1056,6 +1067,7 @@
   background: rgba(51, 65, 85, 0.6);
   color: #94a3b8;
   border-color: rgba(100, 116, 139, 0.3);
+  text-decoration: line-through;
 }
 
 .table-touch-node.dead.holding {
@@ -1063,21 +1075,54 @@
   opacity: 0.55 !important;
 }
 
+/* FULL VERTICAL PLAYING CARD ART FRAME */
+.node-card-art-frame,
 .node-avatar-wrapper {
-  position: relative;
-  width: 58px;
-  height: 58px;
-}
-
-.node-avatar {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8.5px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: auto;
 }
 
-/* Multi-Emoji Status Badge Container: Simple, NO BG, directly after purple number ID */
+.node-card-full-img,
+.node-avatar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+  border: none !important;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.35s ease;
+}
+
+.table-touch-node:hover .node-card-full-img,
+.table-touch-node:hover .node-avatar {
+  transform: scale(1.06);
+}
+
+.node-card-gradient-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 15, 26, 0.35) 0%,
+    transparent 20%,
+    transparent 55%,
+    rgba(10, 15, 26, 0.9) 100%
+  );
+  border-radius: inherit;
+}
+
+/* Multi-Emoji Status Badge Container: Simple, NO BG, directly after player name badge */
 .node-seat-header {
   position: absolute;
   top: -8px;
@@ -1087,7 +1132,7 @@
   gap: 3px;
   z-index: 10;
   pointer-events: none;
-  max-width: 114px;
+  max-width: calc(100% + 14px);
 }
 
 .node-status-emojis {
@@ -1150,7 +1195,7 @@
 
 .node-vote-badge {
   position: absolute;
-  bottom: -4px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   background: #f59e0b;
@@ -1163,12 +1208,11 @@
   align-items: center;
   gap: 2px;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 10px rgba(245, 158, 11, 0.6);
   transition: all 0.15s;
   user-select: none;
   z-index: 10;
   animation: votePop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
 }
 
 .node-vote-badge:hover,
@@ -1184,27 +1228,34 @@
   margin-left: 1px;
 }
 
-.node-seat-name {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 104px;
-}
-
 .node-role-label {
-  font-size: 0.76rem;
-  color: #c084fc;
-  font-weight: 600;
+  position: relative;
+  z-index: 2;
+  font-size: 0.74rem;
+  color: #f1f5f9;
+  font-weight: 800;
+  letter-spacing: 0.03em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 104px;
+  max-width: 100%;
+  text-align: center;
+  padding: 0.22rem 0.25rem;
+  background: rgba(10, 15, 26, 0.76);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+  line-height: 1.2;
 }
 
-/* Prominent Seat Number Badge on Player Cards */
+.node-role-label.role-unknown {
+  color: #94a3b8;
+  font-style: italic;
+  opacity: 0.9;
+}
+
+/* Prominent Player Name Badge on Player Cards */
 .node-seat-badge {
   position: absolute;
   top: -7px;
@@ -1213,24 +1264,20 @@
   color: #ffffff;
   font-size: 0.68rem;
   font-weight: 800;
-  padding: 0.05rem 0.36rem;
+  padding: 0.08rem 0.44rem;
   border-radius: var(--radius-full);
   border: 1.5px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7), 0 0 10px rgba(168, 85, 247, 0.5);
-  line-height: 1.2;
+  line-height: 1.25;
   z-index: 10;
   pointer-events: none;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  max-width: 84px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .node-seat-header .node-seat-badge {
   position: static !important;
-}
-
-.node-seat-num-inline {
-  color: #c084fc;
-  font-size: 0.76rem;
-  font-weight: 800;
-  margin-right: 2px;
-  opacity: 0.9;
 }

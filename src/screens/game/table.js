@@ -104,10 +104,10 @@ export function renderTouchTable() {
   const width = container.clientWidth || 550;
   const height = container.clientHeight || 480;
 
-  // Responsive node dimensions based on count and width
+  // Responsive node dimensions based on count and width (Vertical Playing Card ~1:1.4 aspect ratio)
   const isMobile = width < 480;
-  let nodeWidth = isMobile ? (total >= 10 ? 70 : 80) : (total > 11 ? 84 : (total > 8 ? 94 : 108));
-  const nodeHeight = isMobile ? (total >= 10 ? 80 : 88) : 102;
+  let nodeWidth = isMobile ? (total >= 10 ? 58 : 68) : (total > 11 ? 76 : (total > 8 ? 86 : 96));
+  const nodeHeight = isMobile ? (total >= 10 ? 82 : 96) : (total > 11 ? 106 : (total > 8 ? 120 : 134));
 
   const centerX = width / 2;
   const centerY = height / 2;
@@ -603,6 +603,8 @@ export function renderTouchTable() {
     node.className = `table-touch-node ${p.status === 'dead' ? 'dead' : ''} ${targetClass}`.trim();
     node.style.left = `${Math.round(x)}px`;
     node.style.top = `${Math.round(y)}px`;
+    node.style.width = `${Math.round(nodeWidth)}px`;
+    node.style.height = `${Math.round(nodeHeight)}px`;
 
     // Collect ALL active status emojis (supports 1+ simultaneous emojis)
     const statusEmojis = [];
@@ -626,7 +628,7 @@ export function renderTouchTable() {
 
     node.innerHTML = `
       <div class="node-seat-header">
-        <span class="node-seat-badge">#${p.seat}</span>
+        <span class="node-seat-badge" title="${p.name}">${p.name}</span>
         ${statusEmojis.length > 0 ? `
           <span class="node-status-emojis" title="${statusEmojis.map(s => s.title).join(' • ')}">
             ${statusEmojis.map(s => `<span class="status-emoji">${s.emoji}</span>`).join('')}
@@ -634,12 +636,12 @@ export function renderTouchTable() {
         ` : ''}
       </div>
       ${turnBadgeText ? `<span class="node-turn-indicator-badge">${turnBadgeText}</span>` : ''}
-      <div class="node-avatar-wrapper">
-        <img src="${getRoleImage(p.role)}" class="node-avatar" alt="${p.role}" onerror="this.src='images/anonymous.jpeg'">
+      <div class="node-card-art-frame node-avatar-wrapper">
+        <img src="${getRoleImage(p.role)}" class="node-card-full-img node-avatar" alt="${p.role}" onerror="this.src='images/anonymous.jpeg'">
+        <div class="node-card-gradient-overlay"></div>
+        <div class="node-role-label ${p.role === 'Unknown' ? 'role-unknown' : ''}">${p.role === 'Unknown' ? '? Unknown' : p.role}</div>
         ${p.status === 'alive' && p.votes && p.votes > 0 ? `<span class="node-vote-badge" onclick="decrementPlayerVote('${p.id}', event)" title="Tap to -1 vote">${p.votes}v<span class="vote-minus-symbol">-</span></span>` : ''}
       </div>
-      <div class="node-seat-name"><span class="node-seat-num-inline">#${p.seat}</span> ${p.name}</div>
-      <div class="node-role-label ${p.role === 'Unknown' ? 'role-unknown' : ''}">${p.role === 'Unknown' ? '? Unknown' : p.role}</div>
     `;
   });
 }
