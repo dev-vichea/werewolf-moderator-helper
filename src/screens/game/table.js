@@ -106,8 +106,8 @@ export function renderTouchTable() {
 
   // Responsive node dimensions based on count and width (Vertical Playing Card ~1:1.4 aspect ratio)
   const isMobile = width < 480;
-  let nodeWidth = isMobile ? (total >= 10 ? 58 : 68) : (total > 11 ? 76 : (total > 8 ? 86 : 96));
-  const nodeHeight = isMobile ? (total >= 10 ? 82 : 96) : (total > 11 ? 106 : (total > 8 ? 120 : 134));
+  let nodeWidth = isMobile ? (total >= 10 ? 64 : 72) : (total > 11 ? 76 : (total > 8 ? 86 : 96));
+  const nodeHeight = isMobile ? (total >= 10 ? 90 : 100) : (total > 11 ? 106 : (total > 8 ? 120 : 134));
 
   const centerX = width / 2;
   const centerY = height / 2;
@@ -622,21 +622,6 @@ export function renderTouchTable() {
       }
     }
 
-    let node = existingNodes.get(p.id);
-    const isNew = !node;
-    if (isNew) {
-      node = document.createElement('div');
-      node.dataset.playerId = p.id;
-      setupPlayerNodeHold(node, p.id);
-      container.appendChild(node);
-    }
-
-    node.className = `table-touch-node ${p.status === 'dead' ? 'dead' : ''} ${targetClass}`.trim();
-    node.style.left = `${Math.round(x)}px`;
-    node.style.top = `${Math.round(y)}px`;
-    node.style.width = `${Math.round(nodeWidth)}px`;
-    node.style.height = `${Math.round(nodeHeight)}px`;
-
     // Collect ALL active status emojis (supports 1+ simultaneous emojis)
     const statusEmojis = [];
     if (p.status === 'dead') {
@@ -657,15 +642,30 @@ export function renderTouchTable() {
       if (isSwapSelected) statusEmojis.push({ emoji: '🔄', title: 'Selected to swap seat' });
     }
 
+    let node = existingNodes.get(p.id);
+    const isNew = !node;
+    if (isNew) {
+      node = document.createElement('div');
+      node.dataset.playerId = p.id;
+      setupPlayerNodeHold(node, p.id);
+      container.appendChild(node);
+    }
+
+    node.className = `table-touch-node ${p.status === 'dead' ? 'dead' : ''} ${statusEmojis.length > 0 ? 'has-status-emojis' : ''} ${targetClass}`.trim();
+    node.style.left = `${Math.round(x)}px`;
+    node.style.top = `${Math.round(y)}px`;
+    node.style.width = `${Math.round(nodeWidth)}px`;
+    node.style.height = `${Math.round(nodeHeight)}px`;
+
     node.innerHTML = `
       <div class="node-seat-header">
         <span class="node-seat-badge" title="${p.name}">${p.name}</span>
-        ${statusEmojis.length > 0 ? `
-          <span class="node-status-emojis" title="${statusEmojis.map(s => s.title).join(' • ')}">
-            ${statusEmojis.map(s => `<span class="status-emoji">${s.emoji}</span>`).join('')}
-          </span>
-        ` : ''}
       </div>
+      ${statusEmojis.length > 0 ? `
+        <div class="node-status-emojis" title="${statusEmojis.map(s => s.title).join(' • ')}">
+          ${statusEmojis.map(s => `<span class="status-emoji" title="${s.title}">${s.emoji}</span>`).join('')}
+        </div>
+      ` : ''}
       ${turnBadgeText ? `<span class="node-turn-indicator-badge">${turnBadgeText}</span>` : ''}
       <div class="node-card-art-frame node-avatar-wrapper">
         <img src="${getRoleImage(p.role)}" class="node-card-full-img node-avatar" alt="${p.role}" onerror="this.src='images/anonymous.jpeg'">
