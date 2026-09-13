@@ -127,13 +127,64 @@ export function manualTriggerAutoFill(callbacks = {}) {
 export function checkDoppelgangerTrigger(killedPlayerId, callbacks = {}) {
   if (gameState.nightActions.doppelgangerTarget && gameState.nightActions.doppelgangerTarget === killedPlayerId) {
     const mirroredPlayer = gameState.players.find(p => p.id === killedPlayerId);
-    const doppelganger = gameState.players.find(p => p.role === 'Doppelganger');
+    let doppelganger = null;
+    if (gameState.nightActions.doppelgangerPlayer) {
+      doppelganger = gameState.players.find(p => p.id === gameState.nightActions.doppelgangerPlayer);
+    }
+    if (!doppelganger) {
+      doppelganger = gameState.players.find(p => p.role === 'Doppelganger' && p.status === 'alive') ||
+                     gameState.players.find(p => p.role === 'Doppelganger');
+    }
+
     if (mirroredPlayer && doppelganger && doppelganger.status === 'alive') {
-      doppelganger.role = mirroredPlayer.role;
+      const inheritedRole = (mirroredPlayer.role && mirroredPlayer.role !== 'Unknown') ? mirroredPlayer.role : 'Villager';
+      doppelganger.role = inheritedRole;
+      doppelganger.assumedRoleFrom = mirroredPlayer.id;
+
+      // Consume the link so it doesn't trigger again
+      gameState.nightActions.doppelgangerTarget = null;
+      if (doppelganger.doppelTarget) doppelganger.doppelTarget = null;
+
       soundManager.playFanfare();
-      showCustomAlert(`🎭 DOPPELGANGER TRIGGER!\n\n${mirroredPlayer.name} has died! The Doppelganger (${doppelganger.name}) inherits their role and is now a ${mirroredPlayer.role}!`);
+      showCustomAlert(
+        `🎭 DOPPELGÄNGER AWAKENS!\n\n` +
+        `#${mirroredPlayer.seat} ${mirroredPlayer.name} has died!\n\n` +
+        `The Doppelgänger (#${doppelganger.seat} ${doppelganger.name}) secretly assumes their role and abilities, and is now a ${inheritedRole}!`,
+        {
+          title: '🎭 Doppelgänger Awakens!',
+          icon: '🎭',
+          confirmText: '🎴 Show Card to Doppelgänger',
+          confirmClass: 'btn-primary',
+          cardBorder: '#ec4899',
+          cardGlow: 'rgba(236, 72, 153, 0.45)',
+          onOk: () => {
+            if (typeof callbacks.openFullCardView === 'function') {
+              callbacks.openFullCardView(doppelganger.id);
+            } else if (typeof window !== 'undefined' && typeof window.openFullCardView === 'function') {
+              window.openFullCardView(doppelganger.id);
+            }
+          }
+        }
+      );
+
       if (typeof callbacks.addHistoryLog === 'function') {
-        callbacks.addHistoryLog('Doppelganger Turn', `${doppelganger.name} inherited ${mirroredPlayer.role} from ${mirroredPlayer.name}.`);
+        callbacks.addHistoryLog('Doppelgänger Inherit', `Doppelgänger #${doppelganger.seat} ${doppelganger.name} assumed role (${inheritedRole}) from deceased #${mirroredPlayer.seat} ${mirroredPlayer.name}.`);
+      }
+
+      saveAppState();
+      if (typeof callbacks.renderTouchTable === 'function') {
+        callbacks.renderTouchTable();
+      } else if (typeof callbacks.renderTable === 'function') {
+        callbacks.renderTable();
+      }
+      if (typeof callbacks.renderNightCaller === 'function') {
+        callbacks.renderNightCaller();
+      }
+      if (typeof callbacks.renderGameScreen === 'function') {
+        callbacks.renderGameScreen();
+      }
+      if (typeof callbacks.smartAutoFillRemainingRoles === 'function') {
+        callbacks.smartAutoFillRemainingRoles();
       }
     }
   }

@@ -11,7 +11,7 @@ export const ROLES_CATALOG = [
   { name: 'Mason', team: 'Town', image: 'images/mason.jpeg', desc: 'Masons know each other Night 1.', defaultCount: 0 },
   { name: 'Spellcaster', team: 'Town', image: 'images/spellcaster.jpeg', desc: 'Silences a player each night.', defaultCount: 0 },
   { name: 'Lycan', team: 'Town', image: 'images/lycan.jpeg', desc: 'Town member who appears as Werewolf to Seer.', defaultCount: 0 },
-  { name: 'Doppelganger', team: 'Town', image: 'images/doppelganger.jpeg', desc: 'Takes the role of a player who has died.', defaultCount: 0 },
+  { name: 'Doppelganger', team: 'Town', image: 'images/doppelganger.jpeg', desc: 'Chooses a player on Night 1. If that player dies, the Doppelgänger assumes their role and abilities secretly.', defaultCount: 0 },
   { name: 'Villager', team: 'Town', image: 'images/villager.jpeg', desc: 'Deduces and votes during day.', defaultCount: 3 },
   { name: 'Tanner', team: 'Neutral', image: 'images/tanner.jpeg', desc: 'Wins alone if lynched by town.', defaultCount: 0 },
   { name: 'Cursed', team: 'Town', image: 'images/cursed.jpeg', desc: 'Town until bitten by wolves, then turns Werewolf.', defaultCount: 0 },

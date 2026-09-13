@@ -6,6 +6,7 @@ import { isRoleInGame as checkRoleInGame, getRoleTargetCount as checkRoleTargetC
 import { soundManager } from '../../audio/sound.js';
 import { saveAppState } from '../../state/storage.js';
 import { previewNightDeaths, getInfectedCursedPlayer } from './witch-potions.js';
+import { showGameToast } from '../../ui/toast.js';
 
 let autoAdvanceTimeout = null;
 
@@ -27,15 +28,43 @@ export function isStepRoleDead(step) {
 export function getActiveNightSteps() {
   const steps = [];
 
+  // NIGHT 0: SEATING SETUP
+  if (gameState.currentNight === 0) {
+    steps.push({
+      id: 'seating',
+      name: 'Seating Setup',
+      icon: '🪑',
+      script: `"Moderator: Tap any two players to swap seats, or rotate the table so the screen matches your room. When ready, tap Begin Night 1."`,
+      hasSkill: false,
+      actionName: 'Begin Night 1 ▶',
+      night0Only: true
+    });
+    return steps;
+  }
+
   // 1. NIGHT 1 ONLY SPECIAL ROLES
   if (gameState.currentNight === 1) {
+    // Doppelgänger (Night 1 only - chooses a player to mimic if they die)
+    if (isRoleInGame('Doppelganger')) {
+      steps.push({
+        id: 'doppelganger',
+        targetRole: 'Doppelganger',
+        name: 'Doppelgänger',
+        icon: '🎭',
+        script: `"Doppelgänger, wake up. Look around and silently point to one player. If that player dies, you will secretly assume their role and abilities."`,
+        hasSkill: true,
+        actionName: 'Choose Player',
+        night1Only: true
+      });
+    }
+
     // Cupid (Night 1 only)
     if (isRoleInGame('Cupid')) {
       steps.push({
         id: 'cupid',
         targetRole: 'Cupid',
         name: 'Cupid',
-        icon: '💘',
+        icon: '🏹',
         script: `"Cupid, wake up and silently choose two lovers to bind together."`,
         hasSkill: true,
         actionName: 'Pick 2 Lovers',
@@ -160,22 +189,6 @@ export function getActiveNightSteps() {
     });
   }
 
-  if (gameState.currentNight >= 2 && isRoleInGame('Doppelganger')) {
-    const doppelAlive = gameState.players.some(p => p.role === 'Doppelganger' && p.status === 'alive');
-    const hasDeadPlayer = gameState.players.some(p => p.status === 'dead');
-    if (doppelAlive && hasDeadPlayer && !gameState.nightActions.doppelgangerTarget) {
-      steps.push({
-        id: 'doppelganger',
-        targetRole: 'Doppelganger',
-        name: 'Doppelganger',
-        icon: '🎭',
-        script: `"Doppelganger, open your eyes and silently choose a player who died to inherit their role."`,
-        hasSkill: true,
-        actionName: 'Choose Dead Player'
-      });
-    }
-  }
-
   // 3. SUNRISE (RESOLUTION)
   steps.push({
     id: 'resolution',
@@ -202,6 +215,11 @@ export function syncCallerSubMode() {
   if (!steps || steps.length === 0) return;
   const step = steps[gameState.wizardStepIndex] || steps[0];
   if (!step) return;
+
+  if (gameState.currentNight === 0) {
+    uiState.callerSubMode = 'seatSwap';
+    return;
+  }
 
   if (isStepRoleDead(step)) {
     uiState.callerSubMode = 'dead';
@@ -266,8 +284,59 @@ export function renderNightCaller() {
   if (witchControls) witchControls.style.display = 'none';
   if (targetBadge) targetBadge.style.display = 'none';
   if (resolveBtn) resolveBtn.style.display = 'none';
-  if (nextBtn) nextBtn.style.display = 'inline-flex';
-  if (prevBtn) prevBtn.disabled = (gameState.wizardStepIndex === 0);
+  if (nextBtn) {
+    nextBtn.style.display = 'inline-flex';
+    nextBtn.className = 'btn btn-primary caller-mini-btn';
+    nextBtn.style.background = '';
+    nextBtn.style.borderColor = '';
+    nextBtn.style.color = '';
+    nextBtn.textContent = 'Next ▶';
+    nextBtn.onclick = () => nextWizardStep(callbacks);
+  }
+  if (prevBtn) {
+    prevBtn.style.display = 'inline-flex';
+    prevBtn.disabled = (gameState.wizardStepIndex === 0);
+  }
+
+  // Night 0 Seating Step
+  if (step.id === 'seating') {
+    if (roleNameEl) roleNameEl.textContent = '🪑 Seating Setup';
+    if (dotsEl) dotsEl.innerHTML = '<span style="width: 10px; height: 10px; border-radius: 50%; background: #38bdf8; display: inline-block;"></span>';
+    if (prevBtn) prevBtn.style.display = 'none';
+    if (nextBtn) {
+      nextBtn.style.display = 'inline-flex';
+      nextBtn.className = 'btn btn-primary caller-mini-btn';
+      nextBtn.style.background = '#10b981';
+      nextBtn.style.borderColor = '#059669';
+      nextBtn.style.color = '#ffffff';
+      nextBtn.style.fontWeight = '800';
+      nextBtn.textContent = '🌙 Begin Night 1 ▶';
+      nextBtn.onclick = () => startNight1FromNight0(callbacks);
+    }
+    const selectedP = uiState.selectedSwapSeatId ? gameState.players.find(p => p.id === uiState.selectedSwapSeatId) : null;
+    if (modePillsEl) {
+      modePillsEl.innerHTML = `
+        <button class="caller-mode-btn ${selectedP ? 'active' : ''}" style="font-weight: 700;">
+          ${selectedP ? `🔄 Selected: #${selectedP.seat} ${selectedP.name} (Tap another player to swap)` : `👉 Tap any 2 players to swap seats`}
+        </button>
+        <button class="caller-mode-btn" style="border-color: rgba(56, 189, 248, 0.5); color: #38bdf8;" onclick="rotateTable('clockwise')">
+          ↻ Rotate Clockwise
+        </button>
+        <button class="caller-mode-btn" style="border-color: rgba(56, 189, 248, 0.5); color: #38bdf8;" onclick="rotateTable('counterclockwise')">
+          ↺ Rotate Counter
+        </button>
+      `;
+    }
+    if (instructionText) {
+      instructionText.style.display = 'block';
+      if (selectedP) {
+        instructionText.innerHTML = `<span>🔄</span> <strong>Selected #${selectedP.seat} ${selectedP.name}. Tap another player to swap positions! (Tap #${selectedP.seat} again to cancel)</strong>`;
+      } else {
+        instructionText.innerHTML = `<span>🪑</span> <strong>Night 0: Tap any two players to swap seats so the screen matches your room. Tap 'Begin Night 1' when done.</strong>`;
+      }
+    }
+    return;
+  }
 
   // Sunrise Resolution Step
   if (step.id === 'resolution') {
@@ -398,7 +467,7 @@ export function renderNightCaller() {
   } else if (step.id === 'doppelganger') {
     if (gameState.nightActions.doppelgangerTarget) {
       const p = gameState.players.find(x => x.id === gameState.nightActions.doppelgangerTarget);
-      currentTargetDesc = p ? `Deceased: #${p.seat} ${p.name} (${p.role})` : 'None';
+      currentTargetDesc = p ? `#${p.seat} ${p.name}` : 'None';
       targetColor = '#ec4899';
       targetBg = 'rgba(236, 72, 153, 0.2)';
       targetBorder = 'rgba(236, 72, 153, 0.4)';
@@ -547,7 +616,7 @@ export function renderNightCaller() {
         }
       }
     } else if (step.id === 'doppelganger') {
-      if (instructionText) instructionText.innerHTML = `<span>🎭</span> <strong>Doppelganger: Tap a deceased player on the table to inherit their role:</strong>`;
+      if (instructionText) instructionText.innerHTML = `<span>🎭</span> <strong>Doppelgänger: Tap a living player on the table to secretly copy if they die:</strong>`;
       if (currentTargetDesc !== 'None' && targetBadge && targetName) {
         targetBadge.style.display = 'inline-flex';
         targetBadge.style.backgroundColor = targetBg;
@@ -593,10 +662,35 @@ export function scheduleAutoAdvance(delayMs = 600, callbacks = {}) {
   }, delayMs);
 }
 
+export function startNight1FromNight0(callbacks = {}) {
+  gameState.currentNight = 1;
+  gameState.wizardStepIndex = 0;
+  uiState.callerSubMode = 'role';
+  uiState.selectedSwapSeatId = null;
+  soundManager.playGong();
+  showGameToast('🌙 Night 1 has begun! Village, close your eyes.');
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Night 1', 'Seating setup finalized. Night 1 started.');
+  }
+  saveAppState();
+  if (typeof callbacks.renderGameScreen === 'function') callbacks.renderGameScreen();
+  else if (typeof globalThis.renderGameScreen === 'function') globalThis.renderGameScreen();
+  if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
+  else if (typeof globalThis.renderNightCaller === 'function') globalThis.renderNightCaller();
+  if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+  else if (typeof globalThis.renderTouchTable === 'function') globalThis.renderTouchTable();
+}
+
 export function nextWizardStep(callbacks = {}) {
   cancelAutoAdvance();
   uiState.witchSelectionMode = null;
   uiState.userExplicitRoleMode = false;
+
+  if (gameState.currentNight === 0) {
+    startNight1FromNight0(callbacks);
+    return;
+  }
+
   const steps = getActiveNightSteps();
 
   if (gameState.wizardStepIndex < steps.length - 1) {

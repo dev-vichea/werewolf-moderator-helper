@@ -136,7 +136,7 @@
       <!-- Start Game CTA Button -->
       <div class="lobby-start-actions">
         <button class="btn btn-primary btn-large" onclick="startGameDirectNight1()">
-          🚀 Start Game (Night 1)
+          🚀 Start Game (Night 0 Seating)
         </button>
       </div>
     </section>
@@ -252,6 +252,12 @@
           💡 <em>Hold card to edit role/status</em>
         </div>
         <div class="table-toolbar-actions">
+          <button id="table-rotate-btn" class="btn btn-outline table-tool-btn" style="display: none; color: #38bdf8; border-color: rgba(56, 189, 248, 0.5);" onclick="rotateTable('clockwise')" title="Rotate table clockwise">
+            ↻ Rotate
+          </button>
+          <button id="table-start-night1-btn" class="btn btn-primary table-tool-btn" style="display: none; background: #10b981; border-color: #059669; color: #ffffff; font-weight: 700;" onclick="startNight1FromNight0()" title="Finalize seating and begin Night 1">
+            🌙 Begin Night 1 ▶
+          </button>
           <button id="table-autofill-btn" class="btn btn-outline table-tool-btn" style="color: #c084fc; border-color: rgba(168, 85, 247, 0.5);" onclick="manualTriggerAutoFill()" title="Auto-fill remaining unknown players">
             ⚡ Auto-Fill Roles
           </button>
@@ -376,11 +382,15 @@
         <button id="sheet-toggle-silence-btn" class="btn btn-outline" style="border-color: rgba(139, 92, 246, 0.6); color: #a78bfa; font-weight: 700;" onclick="sheetToggleSilence()">🤐 Silence</button>
         <button id="sheet-random-role-btn" class="btn btn-outline" style="border-color: rgba(168, 85, 247, 0.6); color: #c084fc; font-weight: 700;" onclick="sheetAssignRandomRole()">🎲 Random Role</button>
         <button class="btn btn-outline" onclick="sheetSeerReveal()">👁️ View Alignment</button>
+        <button id="sheet-full-view-btn" class="btn btn-outline" style="border-color: rgba(56, 189, 248, 0.6); color: #38bdf8; font-weight: 700;" onclick="sheetOpenFullCardView()">🎴 Full View</button>
       </div>
 
       <div id="sheet-doppelganger-row" style="display: none; margin-top: 0.4rem;">
-        <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem; border-color: #ec4899; color: #f472b6;" onclick="sheetSetDoppelgangerTargetPrompt()">
-          🎭 Take Role of Deceased Player
+        <button id="sheet-doppelganger-btn" class="btn btn-outline" style="width: 100%; font-size: 0.8rem; border-color: #ec4899; color: #f472b6;" onclick="sheetSetDoppelgangerTargetPrompt()">
+          🎭 Link Target to Copy if They Die
+        </button>
+        <button id="sheet-doppelganger-show-target-btn" class="btn btn-outline" style="display: none; width: 100%; font-size: 0.8rem; border-color: #38bdf8; color: #38bdf8; font-weight: 700; margin-top: 0.35rem;">
+          🎴 Show Target Card to Doppelgänger
         </button>
       </div>
 
@@ -449,6 +459,25 @@
       <div id="custom-dialog-actions" class="custom-dialog-actions">
         <button id="custom-dialog-cancel-btn" class="btn btn-outline custom-dialog-btn" style="display: none;" onclick="handleCustomDialogResolve(false)">Cancel</button>
         <button id="custom-dialog-confirm-btn" class="btn btn-primary custom-dialog-btn" onclick="handleCustomDialogResolve(true)">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       FULL ROLE CARD VIEW MODAL (SHOW ROLE TO PLAYER / DOPPELGÄNGER)
+       ==================================================================== -->
+  <div id="full-card-view-backdrop" class="full-card-backdrop" style="display: none;" onclick="if(event.target === this) closeFullCardView()">
+    <div class="full-card-container">
+      <button class="full-card-close-btn" onclick="closeFullCardView()" title="Close / Hide Card">✕</button>
+      
+      <div id="full-card-content" class="full-card-wrapper">
+        <!-- Dynamically injected -->
+      </div>
+
+      <div class="full-card-footer">
+        <button class="btn btn-primary full-card-dismiss-btn" onclick="closeFullCardView()">
+          🙈 Hide Card
+        </button>
       </div>
     </div>
   </div>

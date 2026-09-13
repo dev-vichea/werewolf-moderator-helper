@@ -37,12 +37,25 @@ export function renderGameTopBar() {
   if (phasePill) {
     if (gameState.phase === 'NIGHT') {
       phasePill.className = 'game-phase-pill night';
-      phasePill.textContent = `🌙 Night ${gameState.currentNight}`;
+      if (gameState.currentNight === 0) {
+        phasePill.textContent = '🪑 Night 0: Seating';
+        phasePill.style.background = 'rgba(56, 189, 248, 0.2)';
+        phasePill.style.borderColor = '#38bdf8';
+        phasePill.style.color = '#38bdf8';
+      } else {
+        phasePill.textContent = `🌙 Night ${gameState.currentNight}`;
+        phasePill.style.background = '';
+        phasePill.style.borderColor = '';
+        phasePill.style.color = '';
+      }
       if (callerBox) callerBox.style.display = 'block';
       if (dayControlsBar) dayControlsBar.style.display = 'none';
     } else {
       phasePill.className = 'game-phase-pill day';
       phasePill.textContent = `☀️ Day ${gameState.currentDay}`;
+      phasePill.style.background = '';
+      phasePill.style.borderColor = '';
+      phasePill.style.color = '';
       if (callerBox) callerBox.style.display = 'none';
       if (dayControlsBar) dayControlsBar.style.display = 'flex';
       renderDayControls();
@@ -74,10 +87,11 @@ export function startGameDirectNight1(callbacks = {}) {
   gameState.inProgress = true;
   gameState.isPhysicalCardMode = true;
   gameState.phase = 'NIGHT';
-  gameState.currentNight = 1;
+  gameState.currentNight = 0; // Starts at Night 0 (Seating Setup)
   gameState.currentDay = 1;
   gameState.wizardStepIndex = 0;
-  uiState.callerSubMode = 'role';
+  uiState.callerSubMode = 'seatSwap';
+  uiState.selectedSwapSeatId = null;
   gameState.potions = { witchHealAvailable: true, witchPoisonAvailable: true };
   gameState.nightActions = {
     cupidLover1: null,
@@ -95,7 +109,7 @@ export function startGameDirectNight1(callbacks = {}) {
     doppelgangerTarget: null
   };
   gameState.lastNightDeaths = [];
-  gameState.history = [{ time: 'Start', text: `Game started directly at Night 1 with ${gameState.players.length} players.` }];
+  gameState.history = [{ time: 'Start', text: `Game started at Night 0 (Seating Arrangement) with ${gameState.players.length} players.` }];
 
   const timerEl = document.getElementById('lobby-timer-select');
   const timerDuration = timerEl ? (parseInt(timerEl.value, 10) || 90) : 90;
@@ -153,10 +167,11 @@ export function dealAndStartGame(callbacks = {}) {
   gameState.inProgress = true;
   gameState.isPhysicalCardMode = false;
   gameState.phase = 'NIGHT';
-  gameState.currentNight = 1;
+  gameState.currentNight = 0; // Starts at Night 0 (Seating Setup)
   gameState.currentDay = 1;
   gameState.wizardStepIndex = 0;
-  uiState.callerSubMode = 'target';
+  uiState.callerSubMode = 'seatSwap';
+  uiState.selectedSwapSeatId = null;
   gameState.potions = { witchHealAvailable: true, witchPoisonAvailable: true };
   gameState.nightActions = {
     cupidLover1: null,
@@ -174,7 +189,7 @@ export function dealAndStartGame(callbacks = {}) {
     doppelgangerTarget: null
   };
   gameState.lastNightDeaths = [];
-  gameState.history = [{ time: 'Start', text: `Auto-dealt game started directly at Night 1 with ${gameState.players.length} players.` }];
+  gameState.history = [{ time: 'Start', text: `Auto-dealt game started at Night 0 (Seating Arrangement) with ${gameState.players.length} players.` }];
 
   const timerEl = document.getElementById('lobby-timer-select');
   const timerDuration = timerEl ? (parseInt(timerEl.value, 10) || 90) : 90;
@@ -192,10 +207,10 @@ export function dealAndStartGame(callbacks = {}) {
 
 export function confirmRestartGame(callbacks = {}) {
   cancelAutoAdvance();
-  showCustomConfirm('Restart current game? This will revive all players, clear night actions, and reset back to Night 1 (player names & seating are preserved).', {
+  showCustomConfirm('Restart current game? This will revive all players, clear night actions, and reset back to Night 0 Seating (player names & seating are preserved).', {
     icon: '↺',
     title: 'Restart Game?',
-    confirmText: '↺ Restart Game',
+    confirmText: '↺ Restart (Night 0)',
     confirmClass: 'btn-warning',
     onConfirm: () => {
       gameState.players.forEach(p => {
@@ -208,10 +223,11 @@ export function confirmRestartGame(callbacks = {}) {
         p.notes = '';
       });
       gameState.phase = 'NIGHT';
-      gameState.currentNight = 1;
+      gameState.currentNight = 0;
       gameState.currentDay = 1;
       gameState.wizardStepIndex = 0;
-      uiState.callerSubMode = 'role';
+      uiState.callerSubMode = 'seatSwap';
+      uiState.selectedSwapSeatId = null;
       uiState.witchSelectionMode = null;
       gameState.potions = { witchHealAvailable: true, witchPoisonAvailable: true };
       gameState.nightActions = {
@@ -233,11 +249,11 @@ export function confirmRestartGame(callbacks = {}) {
       pauseTimer();
       soundManager.playGong();
       if (typeof callbacks.addHistoryLog === 'function') {
-        callbacks.addHistoryLog('Game Restarted', 'Moderator restarted the game back to Night 1.');
+        callbacks.addHistoryLog('Game Restarted', 'Moderator restarted the game back to Night 0 (Seating).');
       }
       saveAppState();
       renderGameScreen();
-      showGameToast('↺ Game restarted back to Night 1');
+      showGameToast('↺ Game restarted back to Night 0 (Seating)');
     }
   });
 }

@@ -3,7 +3,7 @@
  * Triggered by long-pressing / holding a player's card to quickly view or edit role, status, or notes.
  */
 import { gameState, lobbyState, uiState } from '../../state/store.js';
-import { getRoleData } from '../../state/roles.js';
+import { getRoleData, getRoleImage } from '../../state/roles.js';
 import { soundManager } from '../../audio/sound.js';
 import { saveAppState } from '../../state/storage.js';
 import { showCustomAlert } from '../dialog.js';
@@ -66,7 +66,31 @@ export function openPlayerActionSheet(playerId) {
   // Doppelganger target setting row
   const doppelRow = document.getElementById('sheet-doppelganger-row');
   if (doppelRow) {
-    doppelRow.style.display = (p.role === 'Doppelganger') ? 'block' : 'none';
+    const isDoppel = (p.role === 'Doppelganger' || p.id === gameState.nightActions.doppelgangerPlayer || p.assumedRoleFrom);
+    if (isDoppel) {
+      doppelRow.style.display = 'block';
+      const targetP = gameState.nightActions.doppelgangerTarget ? gameState.players.find(x => x.id === gameState.nightActions.doppelgangerTarget) : null;
+      const targetBtn = document.getElementById('sheet-doppelganger-btn');
+      if (targetBtn) {
+        if (targetP) {
+          targetBtn.innerHTML = `🎭 Target: #${targetP.seat} ${targetP.name} <span style="opacity:0.75; font-size:0.75rem;">(Tap to change)</span>`;
+        } else {
+          targetBtn.innerHTML = `🎭 Link Target to Copy if They Die`;
+        }
+      }
+      const showTargetBtn = document.getElementById('sheet-doppelganger-show-target-btn');
+      if (showTargetBtn) {
+        if (targetP) {
+          showTargetBtn.style.display = 'block';
+          showTargetBtn.textContent = `🎴 Show #${targetP.seat} ${targetP.name}'s Card (${targetP.role}) to Doppelgänger`;
+          showTargetBtn.onclick = () => openFullCardView(targetP.id);
+        } else {
+          showTargetBtn.style.display = 'none';
+        }
+      }
+    } else {
+      doppelRow.style.display = 'none';
+    }
   }
 
   document.getElementById('player-action-sheet-backdrop').classList.add('open');
@@ -172,32 +196,31 @@ export function sheetSetDoppelgangerTargetPrompt(callbacks = {}) {
   const doppel = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
   if (!doppel) return;
 
-  const options = gameState.players.filter(p => p.id !== doppel.id && p.status === 'dead');
+  const currentTarget = gameState.players.find(p => p.id === gameState.nightActions.doppelgangerTarget);
+  const options = gameState.players.filter(p => p.id !== doppel.id && p.status === 'alive');
   if (options.length === 0) {
-    alert('No deceased players in the game yet! Doppelganger can only take the role of someone who has died.');
+    showCustomAlert('No other living players in the game to link with!');
     return;
   }
 
-  const list = options.map(p => `#${p.seat} ${p.name} (Role: ${p.role})`).join('\n');
-  const targetSeat = prompt(`Enter seat number of deceased player for Doppelganger to become:\n\n${list}`);
+  const currentInfo = currentTarget ? `Currently linked to: #${currentTarget.seat} ${currentTarget.name}\n\n` : '';
+  const list = options.map(p => `#${p.seat} ${p.name}`).join('\n');
+  const targetSeat = prompt(`${currentInfo}Enter seat number of player for Doppelgänger to secretly copy if they die:\n\n${list}`);
   if (!targetSeat) return;
 
   const chosen = options.find(p => String(p.seat) === targetSeat.trim());
   if (!chosen) {
-    alert('Invalid seat number selected.');
+    showCustomAlert('Invalid seat number selected.');
     return;
   }
 
-  const inheritedRole = (chosen.role && chosen.role !== 'Unknown') ? chosen.role : 'Villager';
-  doppel.role = inheritedRole;
   gameState.nightActions.doppelgangerTarget = chosen.id;
-  soundManager.playFanfare();
-  alert(`🎭 Doppelganger took deceased #${chosen.seat} ${chosen.name}'s role and is now a ${inheritedRole}!\nHer card is updated immediately!`);
+  gameState.nightActions.doppelgangerPlayer = doppel.id;
+  doppel.doppelTarget = chosen.id;
+  soundManager.playChime();
+  showCustomAlert(`🎭 Doppelgänger linked with #${chosen.seat} ${chosen.name}!\n\nIf #${chosen.seat} ${chosen.name} dies, Doppelgänger will secretly assume their role and abilities.`);
   if (typeof callbacks.addHistoryLog === 'function') {
-    callbacks.addHistoryLog('Doppelganger Transform', `${doppel.name} took deceased ${chosen.name}'s role and became ${inheritedRole}.`);
-  }
-  if (typeof callbacks.smartAutoFillRemainingRoles === 'function') {
-    callbacks.smartAutoFillRemainingRoles();
+    callbacks.addHistoryLog('Doppelgänger Link', `Doppelgänger (${doppel.name}) linked with #${chosen.seat} ${chosen.name} to copy if they die.`);
   }
   saveAppState();
   closePlayerActionSheet();
@@ -347,3 +370,106 @@ export function sheetSaveNotes(notes) {
   p.notes = notes;
   saveAppState();
 }
+
+export function sheetOpenFullCardView() {
+  if (!uiState.sheetTargetPlayerId) return;
+  openFullCardView(uiState.sheetTargetPlayerId);
+}
+
+export function openFullCardView(playerId) {
+  const p = gameState.players.find(x => x.id === playerId);
+  if (!p) return;
+
+  const backdrop = document.getElementById('full-card-view-backdrop');
+  const contentEl = document.getElementById('full-card-content');
+  if (!backdrop || !contentEl) return;
+
+  const roleData = getRoleData(p.role);
+  const team = roleData.team || 'Town';
+  const teamLower = team.toLowerCase();
+  const teamEmoji = team === 'Werewolf' ? '🐺' : (team === 'Neutral' ? '🎭' : '🛡️');
+
+  // Check Doppelgänger details
+  let doppelExtraHtml = '';
+  if (p.role === 'Doppelganger' || p.id === gameState.nightActions.doppelgangerPlayer) {
+    if (gameState.nightActions.doppelgangerTarget) {
+      const targetP = gameState.players.find(x => x.id === gameState.nightActions.doppelgangerTarget);
+      if (targetP) {
+        doppelExtraHtml = `
+          <div class="full-card-extra-box">
+            <span>🎭 Linked to: <strong>#${targetP.seat} ${targetP.name}</strong> (${targetP.role})</span>
+            <button type="button" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; border-color: #ec4899; color: #f472b6; font-weight: 700;" onclick="openFullCardView('${targetP.id}')">
+              Show #${targetP.seat} Role 👁️
+            </button>
+          </div>
+        `;
+      }
+    }
+  }
+
+  // If this player assumed role from someone
+  if (p.assumedRoleFrom) {
+    const orig = gameState.players.find(x => x.id === p.assumedRoleFrom);
+    if (orig) {
+      doppelExtraHtml = `
+        <div class="full-card-extra-box">
+          <span>🎭 Originally Doppelgänger — Secretly assumed role from <strong>#${orig.seat} ${orig.name}</strong></span>
+        </div>
+      `;
+    }
+  }
+
+  // If this player is the target of Doppelgänger
+  if (gameState.nightActions.doppelgangerTarget === p.id) {
+    const doppelP = gameState.players.find(x => x.id === gameState.nightActions.doppelgangerPlayer || x.role === 'Doppelganger');
+    doppelExtraHtml = `
+      <div class="full-card-extra-box">
+        <span>🎭 Linked Target for Doppelgänger ${doppelP ? `(#${doppelP.seat} ${doppelP.name})` : ''}</span>
+      </div>
+    `;
+  }
+
+  contentEl.innerHTML = `
+    <div class="full-card-body card-team-${teamLower}">
+      <div class="full-card-header">
+        <div class="full-card-seat-pill">#${p.seat} ${p.name}</div>
+        <div class="full-card-team-badge team-${teamLower}">${teamEmoji} ${team} Team</div>
+      </div>
+
+      <div class="full-card-art-box">
+        <img src="${getRoleImage(p.role)}" class="full-card-img" alt="${p.role}" onerror="this.src='images/anonymous.jpeg'">
+        <div class="full-card-gradient"></div>
+        <div class="full-card-role-banner">
+          <h2 class="full-card-role-title">${p.role === 'Unknown' ? 'Unknown Role' : p.role}</h2>
+          <span class="full-card-status-pill ${p.status === 'alive' ? 'status-alive' : 'status-dead'}">
+            ${p.status.toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      <div class="full-card-desc-box">
+        <div class="full-card-desc-label">ROLE ABILITIES & RULES</div>
+        <p class="full-card-desc-text">${roleData.desc || 'No description available.'}</p>
+        ${doppelExtraHtml}
+      </div>
+    </div>
+  `;
+
+  soundManager.playChime();
+  backdrop.style.display = 'flex';
+  void backdrop.offsetWidth;
+  backdrop.classList.add('open');
+}
+
+export function closeFullCardView() {
+  const backdrop = document.getElementById('full-card-view-backdrop');
+  if (backdrop) {
+    backdrop.classList.remove('open');
+    setTimeout(() => {
+      if (!backdrop.classList.contains('open')) {
+        backdrop.style.display = 'none';
+      }
+    }, 200);
+  }
+}
+

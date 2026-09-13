@@ -40,7 +40,8 @@ export const gameState = {
 
 // Caller and UI Selection State
 export const uiState = {
-  callerSubMode: 'role', // 'role' | 'target'
+  callerSubMode: 'role', // 'role' | 'target' | 'seatSwap'
+  selectedSwapSeatId: null, // Player ID currently selected for seat swapping
   userExplicitRoleMode: false,
   witchSelectionMode: null, // 'heal' | 'poison' | null
   activeTab: 'lobby', // 'lobby' | 'game' | 'log-roles'

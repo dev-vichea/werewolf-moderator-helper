@@ -17,6 +17,17 @@ export function handleCenterHubTap(callbacks = {}) {
 
   const phase = (gameState.phase || '').toUpperCase();
   if (phase === 'NIGHT') {
+    if (gameState.currentNight === 0) {
+      if (typeof callbacks.startNight1FromNight0 === 'function') {
+        callbacks.startNight1FromNight0();
+      } else if (typeof globalThis.startNight1FromNight0 === 'function') {
+        globalThis.startNight1FromNight0();
+      } else if (nextStepFn) {
+        nextStepFn(callbacks);
+      }
+      return;
+    }
+
     const steps = getSteps ? getSteps() : [];
     const currentStep = steps[gameState.wizardStepIndex];
     if (currentStep && currentStep.id === 'resolution') {

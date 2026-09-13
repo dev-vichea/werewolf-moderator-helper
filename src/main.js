@@ -8,14 +8,14 @@ import { loadAppState, saveAppState } from './state/storage.js';
 import { parseDialogMeta, showCustomAlert, showCustomConfirm, handleCustomDialogResolve, handleDialogBackdropClick, initDialogKeyboardListeners } from './ui/dialog.js';
 import { showGameToast } from './ui/toast.js';
 import { showWinOverlay, closeWinOverlay, returnToLobbyFromGameOver, stayAndViewTable } from './ui/modal/win-modal.js';
-import { openPlayerActionSheet, closePlayerActionSheet, sheetSaveName, sheetSetRole, sheetAssignRandomRole, sheetSetDoppelgangerTargetPrompt, sheetToggleLife, sheetToggleMayor, sheetToggleLover, sheetToggleShield, sheetToggleSilence, sheetSeerReveal, sheetSaveNotes } from './ui/modal/action-sheet.js';
+import { openPlayerActionSheet, closePlayerActionSheet, sheetSaveName, sheetSetRole, sheetAssignRandomRole, sheetSetDoppelgangerTargetPrompt, sheetToggleLife, sheetToggleMayor, sheetToggleLover, sheetToggleShield, sheetToggleSilence, sheetSeerReveal, sheetSaveNotes, openFullCardView, closeFullCardView, sheetOpenFullCardView } from './ui/modal/action-sheet.js';
 import { triggerHunterRevenge, processNextHunterRevenge, openHunterRevengeModal, executeHunterRevenge, passHunterRevenge, closeHunterRevengeModal, currentRevengeHunter, getCurrentRevengeHunter, setCurrentRevengeHunter } from './ui/modal/hunter-modal.js';
 import { getEvenlySpacedEllipseAngles } from './utils/math.js';
 import { toggleTimer, startTimer, pauseTimer, resetTimer, updateTimerDisplay, toggleSound, triggerTimerAlarm, silenceTimerAlarm, addTimerSeconds, triggerAttentionBell } from './utils/timer.js';
 import { renderLobby, addLobbyPlayer, addLobbyBatchPlayers, removeLobbyPlayer, renderLobbyPlayers, adjustRoleCount, renderRoleDeckGrid, getTotalDeckCount, updateDeckStatus, autoFillVillagers, loadLobbyPreset, clearRoleDeck } from './screens/lobby/lobby-screen.js';
 import { renderGameScreen, renderGameTopBar, startGameDirectNight1, startPhysicalCardGame, dealAndStartGame, confirmRestartGame, checkWinCondition, confirmExitToLobby } from './screens/game/game-screen.js';
-import { getActiveNightSteps, setCallerSubMode, syncCallerSubMode, renderNightCaller, cancelAutoAdvance, scheduleAutoAdvance, nextWizardStep, prevWizardStep } from './screens/game/night-caller.js';
-import { toggleTableExpand, setupTableResizeObserver, renderTouchTable, setupPlayerNodeHold, handleTableNodeTap } from './screens/game/table.js';
+import { getActiveNightSteps, setCallerSubMode, syncCallerSubMode, renderNightCaller, cancelAutoAdvance, scheduleAutoAdvance, nextWizardStep, prevWizardStep, startNight1FromNight0 } from './screens/game/night-caller.js';
+import { toggleTableExpand, setupTableResizeObserver, renderTouchTable, setupPlayerNodeHold, handleTableNodeTap, handleSeatSwapTap, swapPlayerSeats, rotateTable } from './screens/game/table.js';
 import { handleCenterHubTap } from './screens/game/center-hub.js';
 import { handleWitchPotionBtnTap, handleWitchDirectPlayerTap, toggleWitchHealTouch, armWitchPoisonTouch, previewNightDeaths, getInfectedCursedPlayer } from './screens/game/witch-potions.js';
 import { resolveNightAndStartDay, renderDayControls, addPlayerVote, decrementPlayerVote, resetAllVotes, executeCurrentLynchLeader, startNightPhase } from './screens/game/day-phase.js';
@@ -94,6 +94,10 @@ function wrappedCheckWinCondition() { return checkWinCondition(appCallbacks); }
 function wrappedStartGameDirectNight1() { return startGameDirectNight1(appCallbacks); }
 function wrappedStartPhysicalCardGame() { return startPhysicalCardGame(appCallbacks); }
 function wrappedDealAndStartGame() { return dealAndStartGame(appCallbacks); }
+function wrappedStartNight1FromNight0() { return startNight1FromNight0(appCallbacks); }
+function wrappedHandleSeatSwapTap(id) { return handleSeatSwapTap(id, appCallbacks); }
+function wrappedSwapPlayerSeats(idA, idB) { return swapPlayerSeats(idA, idB, appCallbacks); }
+function wrappedRotateTable(dir) { return rotateTable(dir, appCallbacks); }
 
 // --- Wire callback dependencies to modules ---
 const appCallbacks = {
@@ -118,7 +122,12 @@ const appCallbacks = {
   getActiveNightSteps,
   resolveNightAndStartDay: wrappedResolveNightAndStartDay,
   executeCurrentLynchLeader: wrappedExecuteCurrentLynchLeader,
-  startNightPhase: wrappedStartNightPhase
+  startNightPhase: wrappedStartNightPhase,
+  startNight1FromNight0: wrappedStartNight1FromNight0,
+  handleSeatSwapTap: wrappedHandleSeatSwapTap,
+  swapPlayerSeats: wrappedSwapPlayerSeats,
+  rotateTable: wrappedRotateTable,
+  openFullCardView
 };
 
 const exposedExports = {
@@ -159,6 +168,9 @@ const exposedExports = {
   sheetToggleSilence: wrappedSheetToggleSilence,
   sheetSeerReveal,
   sheetSaveNotes,
+  openFullCardView,
+  closeFullCardView,
+  sheetOpenFullCardView,
   triggerHunterRevenge,
   processNextHunterRevenge,
   openHunterRevengeModal,
@@ -209,6 +221,10 @@ const exposedExports = {
   renderTouchTable,
   setupPlayerNodeHold,
   handleTableNodeTap: wrappedHandleTableNodeTap,
+  handleSeatSwapTap: wrappedHandleSeatSwapTap,
+  swapPlayerSeats: wrappedSwapPlayerSeats,
+  rotateTable: wrappedRotateTable,
+  startNight1FromNight0: wrappedStartNight1FromNight0,
   handleCenterHubTap: wrappedHandleCenterHubTap,
   handleWitchPotionBtnTap: wrappedHandleWitchPotionBtnTap,
   handleWitchDirectPlayerTap,
@@ -274,6 +290,9 @@ export {
   wrappedSheetToggleSilence as sheetToggleSilence,
   sheetSeerReveal,
   sheetSaveNotes,
+  openFullCardView,
+  closeFullCardView,
+  sheetOpenFullCardView,
   triggerHunterRevenge,
   processNextHunterRevenge,
   openHunterRevengeModal,
@@ -324,6 +343,10 @@ export {
   renderTouchTable,
   setupPlayerNodeHold,
   wrappedHandleTableNodeTap as handleTableNodeTap,
+  wrappedHandleSeatSwapTap as handleSeatSwapTap,
+  wrappedSwapPlayerSeats as swapPlayerSeats,
+  wrappedRotateTable as rotateTable,
+  wrappedStartNight1FromNight0 as startNight1FromNight0,
   wrappedHandleCenterHubTap as handleCenterHubTap,
   wrappedHandleWitchPotionBtnTap as handleWitchPotionBtnTap,
   handleWitchDirectPlayerTap,

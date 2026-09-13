@@ -2,7 +2,7 @@
  * Circular / Elliptical Touch Table Controller
  * Calculates perimeter distribution, renders touch nodes, and coordinates node hold & tap actions.
  */
-import { gameState, uiState } from '../../state/store.js';
+import { gameState, lobbyState, uiState } from '../../state/store.js';
 import { getRoleImage, getRoleTargetCount } from '../../state/roles.js';
 import { soundManager } from '../../audio/sound.js';
 import { saveAppState } from '../../state/storage.js';
@@ -11,7 +11,7 @@ import { showGameToast } from '../../ui/toast.js';
 import { getEvenlySpacedEllipseAngles } from '../../utils/math.js';
 import { openPlayerActionSheet } from '../../ui/modal/action-sheet.js';
 import { previewNightDeaths, getInfectedCursedPlayer, handleWitchDirectPlayerTap } from './witch-potions.js';
-import { getActiveNightSteps, setCallerSubMode, cancelAutoAdvance, scheduleAutoAdvance, nextWizardStep, renderNightCaller, isStepRoleDead } from './night-caller.js';
+import { getActiveNightSteps, setCallerSubMode, cancelAutoAdvance, scheduleAutoAdvance, nextWizardStep, renderNightCaller, isStepRoleDead, startNight1FromNight0 } from './night-caller.js';
 import { addPlayerVote, renderDayControls } from './day-phase.js';
 import { smartAutoFillRemainingRoles } from './autofill.js';
 
@@ -146,7 +146,13 @@ export function renderTouchTable() {
       const activeSteps = getActiveNightSteps();
       activeStep = activeSteps[gameState.wizardStepIndex];
 
-      if (!activeStep) {
+      if (gameState.currentNight === 0) {
+        const selectedP = uiState.selectedSwapSeatId ? gameState.players.find(p => p.id === uiState.selectedSwapSeatId) : null;
+        hubEmoji = '🪑';
+        hubTitle = selectedP ? `#${selectedP.seat} Selected` : 'Seating Setup';
+        hubSubtitle = selectedP ? 'Tap partner to swap' : 'Begin Night 1 ▶';
+        hubReady = true;
+      } else if (!activeStep) {
         hubEmoji = '🌙';
         hubTitle = `Night ${gameState.currentNight}`;
         hubSubtitle = 'In Progress';
@@ -288,13 +294,13 @@ export function renderTouchTable() {
             const copyTarget = gameState.players.find(p => p.id === gameState.nightActions.doppelgangerTarget);
             if (copyTarget) {
               hubEmoji = '🎭';
-              hubTitle = `#${copyTarget.seat} (${copyTarget.role})`;
-              hubSubtitle = 'Transformed! ▶';
+              hubTitle = `#${copyTarget.seat} ${copyTarget.name}`;
+              hubSubtitle = '🎭 Target Linked! ▶';
               hubReady = true;
             } else {
               hubEmoji = '🎭';
-              hubTitle = 'Doppelganger';
-              hubSubtitle = 'Tap dead player';
+              hubTitle = 'Doppelgänger';
+              hubSubtitle = 'Tap player to link';
               hubReady = false;
             }
           } else {
@@ -475,11 +481,34 @@ export function renderTouchTable() {
     expandBtn.textContent = isExp ? '⛷ Compact Table' : '⛶ Expand Table';
   }
 
+  // Update Toolbar Hint for Night 0 vs regular play
+  const toolbarHint = document.querySelector('.table-toolbar-hint');
+  if (toolbarHint) {
+    if (gameState.phase === 'NIGHT' && gameState.currentNight === 0) {
+      const selP = uiState.selectedSwapSeatId ? gameState.players.find(p => p.id === uiState.selectedSwapSeatId) : null;
+      toolbarHint.innerHTML = selP 
+        ? `🔄 <em>Selected #${selP.seat} ${selP.name} • Tap another to swap</em>`
+        : `🪑 <em>Night 0: Tap any 2 players to swap seats!</em>`;
+    } else {
+      toolbarHint.innerHTML = `💡 <em>Hold card to edit role/status</em>`;
+    }
+  }
+
+  // Night 0 Toolbar Actions: Rotate & Start Night 1
+  const rotateBtn = document.getElementById('table-rotate-btn');
+  if (rotateBtn) {
+    rotateBtn.style.display = (gameState.phase === 'NIGHT' && gameState.currentNight === 0) ? 'inline-flex' : 'none';
+  }
+  const startNight1Btn = document.getElementById('table-start-night1-btn');
+  if (startNight1Btn) {
+    startNight1Btn.style.display = (gameState.phase === 'NIGHT' && gameState.currentNight === 0) ? 'inline-flex' : 'none';
+  }
+
   // Update Toolbar Auto-Fill Button visibility & count
   const unknownCount = gameState.players.filter(p => p.role === 'Unknown').length;
   const tableAutofillBtn = document.getElementById('table-autofill-btn');
   if (tableAutofillBtn) {
-    tableAutofillBtn.style.display = unknownCount > 0 ? 'inline-flex' : 'none';
+    tableAutofillBtn.style.display = (unknownCount > 0 && gameState.currentNight >= 1) ? 'inline-flex' : 'none';
     tableAutofillBtn.textContent = `⚡ Auto-Fill (${unknownCount})`;
   }
 
@@ -543,18 +572,13 @@ export function renderTouchTable() {
     const isPoisonTarget = (gameState.nightActions.witchPoisonTarget === p.id);
     const isHealTarget = (gameState.nightActions.witchHealed && (gameState.nightActions.witchHealTarget === p.id || (!gameState.nightActions.witchHealTarget && gameState.nightActions.wolfTarget === p.id)));
     const isSilenced = Boolean(p.isSilenced || gameState.nightActions.spellcasterTarget === p.id);
-    const isMirrorTarget = Boolean(gameState.nightActions.doppelgangerTarget === p.id || p.doppelTarget);
+    const isMirrorTarget = Boolean(gameState.nightActions.doppelgangerTarget === p.id);
     const isCupidTarget = (gameState.phase === 'NIGHT' && currentStep && currentStep.id === 'cupid' && uiState.callerSubMode === 'target' && (gameState.nightActions.cupidLover1 === p.id || gameState.nightActions.cupidLover2 === p.id));
     const isSeerTarget = (gameState.phase === 'NIGHT' && currentStep && currentStep.id === 'seer' && gameState.nightActions.seerTarget === p.id);
     const isSeerWolf = isSeerTarget && (p.role === 'Werewolf' || p.role === 'Lycan');
 
-    const isDoppelTargetMode = (gameState.phase === 'NIGHT' && currentStep && currentStep.id === 'doppelganger' && uiState.callerSubMode === 'target');
-    const isDeadCandidate = (isDoppelTargetMode && p.status === 'dead');
-
     let targetClass = '';
-    if (isDeadCandidate) {
-      targetClass = 'doppel-dead-candidate';
-    } else if (p.status === 'alive') {
+    if (p.status === 'alive') {
       if (isWolfTarget && isHealTarget) targetClass = 'targeted-heal';
       else if (isHealTarget) targetClass = 'targeted-heal';
       else if (isWolfTarget) targetClass = 'targeted-wolf';
@@ -574,8 +598,15 @@ export function renderTouchTable() {
       targetClass += (uiState.callerSubMode === 'role' ? ' role-selected' : ' active-role-actor');
     }
 
+    const isSwapSelected = (gameState.phase === 'NIGHT' && gameState.currentNight === 0 && uiState.selectedSwapSeatId === p.id);
+    if (isSwapSelected) {
+      targetClass += ' seat-swap-selected';
+    }
+
     let turnBadgeText = '';
-    if (isCurrentTurn) {
+    if (isSwapSelected) {
+      turnBadgeText = '🔄 SWAP';
+    } else if (isCurrentTurn) {
       switch (p.role) {
         case 'Werewolf': turnBadgeText = '🐺 WOLF TURN'; break;
         case 'Seer': turnBadgeText = '🔮 SEER CHECK'; break;
@@ -621,9 +652,9 @@ export function renderTouchTable() {
       if (isHealTarget) statusEmojis.push({ emoji: '💚', title: 'Healed by Witch' });
       if (isPoisonTarget) statusEmojis.push({ emoji: '☠️', title: 'Poisoned by Witch' });
       if (isWolfTarget) statusEmojis.push({ emoji: '🐺', title: 'Targeted by Werewolves' });
-      if (isMirrorTarget) statusEmojis.push({ emoji: '🎭', title: 'Doppelganger Target' });
+      if (isMirrorTarget) statusEmojis.push({ emoji: '🎭', title: 'Doppelgänger Target' });
       if (isSeerTarget) statusEmojis.push({ emoji: isSeerWolf ? '🟢' : '🔴', title: isSeerWolf ? 'Seer: Wolf!' : 'Seer: Town' });
-      if (isDeadCandidate) statusEmojis.push({ emoji: '🎭', title: 'Mimic Candidate' });
+      if (isSwapSelected) statusEmojis.push({ emoji: '🔄', title: 'Selected to swap seat' });
     }
 
     node.innerHTML = `
@@ -714,7 +745,13 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
     return;
   }
 
-  // 2. NIGHT PHASE
+  // 2. NIGHT PHASE - NIGHT 0: SEAT SWAPPING
+  if (gameState.phase === 'NIGHT' && gameState.currentNight === 0) {
+    handleSeatSwapTap(playerId, callbacks);
+    return;
+  }
+
+  // NIGHT 1+: ROLE CALLER & ACTIONS
   const steps = getActiveNightSteps();
   const currentStep = steps[gameState.wizardStepIndex];
   if (!currentStep) return;
@@ -802,33 +839,42 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
 
   // SUB-MODE B: SKILL TARGETING
   if (currentStep.id === 'doppelganger') {
-    if (player.status !== 'dead') {
-      soundManager.playBeep();
-      showCustomAlert(`⚠️ #${player.seat} ${player.name} is alive!\n\nDoppelganger can only take the role of a player who has died.`);
-      return;
-    }
-
     const doppel = gameState.players.find(p => p.role === 'Doppelganger' && p.status === 'alive') ||
                    gameState.players.find(p => p.role === 'Doppelganger');
-    if (!doppel) {
-      showCustomAlert('⚠️ No Doppelganger found in the game to receive the role.');
+
+    if (doppel && doppel.id === player.id) {
+      soundManager.playBeep();
+      showCustomAlert(`⚠️ #${player.seat} ${player.name} is the Doppelgänger!\n\nShe must choose another player to copy if they die.`);
       return;
     }
 
-    const inheritedRole = (player.role && player.role !== 'Unknown') ? player.role : 'Villager';
-    doppel.role = inheritedRole;
-    gameState.nightActions.doppelgangerTarget = player.id;
-    soundManager.playFanfare();
-    showCustomAlert(`🎭 DOPPELGANGER TRANSFORMED!\n\n${doppel.name} took deceased #${player.seat} ${player.name}'s role and is now a ${inheritedRole}!\nHer card is updated immediately!`);
-    if (typeof callbacks.addHistoryLog === 'function') {
-      callbacks.addHistoryLog('Doppelganger Transform', `${doppel.name} took deceased ${player.name}'s role and became ${inheritedRole}.`);
+    if (player.status !== 'alive') {
+      soundManager.playBeep();
+      showCustomAlert(`⚠️ #${player.seat} ${player.name} is dead!\n\nPlease choose a living player on Night 1.`);
+      return;
     }
 
-    smartAutoFillRemainingRoles(false, callbacks);
+    if (gameState.nightActions.doppelgangerTarget === playerId) {
+      gameState.nightActions.doppelgangerTarget = null;
+      if (doppel) doppel.doppelTarget = null;
+      cancelAutoAdvance();
+      soundManager.playBeep();
+    } else {
+      gameState.nightActions.doppelgangerTarget = playerId;
+      if (doppel) {
+        doppel.doppelTarget = playerId;
+        gameState.nightActions.doppelgangerPlayer = doppel.id;
+      }
+      soundManager.playChime();
+      showGameToast(`🎭 Doppelgänger linked with #${player.seat} ${player.name}`);
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog('Doppelgänger Link', `Doppelgänger (${doppel ? doppel.name : 'Doppelgänger'}) chose #${player.seat} ${player.name} to copy if they die.`);
+      }
+      scheduleAutoAdvance(650, callbacks);
+    }
     saveAppState();
     renderNightCaller();
     renderTouchTable();
-    scheduleAutoAdvance(700, callbacks);
     return;
   }
 
@@ -1050,3 +1096,104 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
     openPlayerActionSheet(playerId);
   }
 }
+
+/**
+ * Handles seat selection and swapping during Night 0
+ */
+export function handleSeatSwapTap(playerId, callbacks = {}) {
+  const player = gameState.players.find(p => p.id === playerId);
+  if (!player) return;
+
+  if (!uiState.selectedSwapSeatId) {
+    // First seat selected
+    uiState.selectedSwapSeatId = playerId;
+    soundManager.playPop();
+    showGameToast(`🪑 Selected #${player.seat} ${player.name}. Tap another player to swap seats.`);
+    renderTouchTable();
+    renderNightCaller();
+    return;
+  }
+
+  if (uiState.selectedSwapSeatId === playerId) {
+    // Tapping the same seat again cancels selection
+    uiState.selectedSwapSeatId = null;
+    soundManager.playBeep();
+    showGameToast(`Deselected #${player.seat} ${player.name}`);
+    renderTouchTable();
+    renderNightCaller();
+    return;
+  }
+
+  // Second seat selected -> perform swap!
+  const firstPlayerId = uiState.selectedSwapSeatId;
+  swapPlayerSeats(firstPlayerId, playerId, callbacks);
+}
+
+/**
+ * Swaps seats between two players and updates seat numbers (1..N)
+ */
+export function swapPlayerSeats(playerAId, playerBId, callbacks = {}) {
+  const idxA = gameState.players.findIndex(p => p.id === playerAId);
+  const idxB = gameState.players.findIndex(p => p.id === playerBId);
+  if (idxA === -1 || idxB === -1) return;
+
+  const playerA = gameState.players[idxA];
+  const playerB = gameState.players[idxB];
+
+  // Swap array elements
+  gameState.players[idxA] = playerB;
+  gameState.players[idxB] = playerA;
+
+  // Re-assign seat numbers 1..N based on new array order
+  gameState.players.forEach((p, idx) => {
+    p.seat = idx + 1;
+  });
+
+  // Keep lobbyState players synchronized if matching length
+  if (lobbyState && Array.isArray(lobbyState.players) && lobbyState.players.length === gameState.players.length) {
+    lobbyState.players = gameState.players.map(p => p.name);
+  }
+
+  uiState.selectedSwapSeatId = null;
+  soundManager.playChime();
+  showGameToast(`🔄 Swapped seats: ${playerA.name} ↔ ${playerB.name}`);
+
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Seating Swap', `Swapped seats between #${playerA.seat} ${playerA.name} and #${playerB.seat} ${playerB.name}`);
+  }
+
+  saveAppState();
+  renderTouchTable();
+  renderNightCaller();
+}
+
+/**
+ * Rotates the entire table arrangement clockwise or counter-clockwise
+ */
+export function rotateTable(direction = 'clockwise', callbacks = {}) {
+  if (!gameState.players || gameState.players.length < 2) return;
+
+  if (direction === 'clockwise' || direction === 'cw') {
+    const last = gameState.players.pop();
+    gameState.players.unshift(last);
+  } else {
+    const first = gameState.players.shift();
+    gameState.players.push(first);
+  }
+
+  gameState.players.forEach((p, idx) => {
+    p.seat = idx + 1;
+  });
+
+  if (lobbyState && Array.isArray(lobbyState.players) && lobbyState.players.length === gameState.players.length) {
+    lobbyState.players = gameState.players.map(p => p.name);
+  }
+
+  soundManager.playPop();
+  showGameToast(direction === 'clockwise' || direction === 'cw' ? '↻ Rotated table clockwise' : '↺ Rotated table counter-clockwise');
+
+  saveAppState();
+  renderTouchTable();
+  renderNightCaller();
+}
+
