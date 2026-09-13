@@ -668,7 +668,7 @@ export function startNight1FromNight0(callbacks = {}) {
   uiState.callerSubMode = 'role';
   uiState.selectedSwapSeatId = null;
   soundManager.playGong();
-  showGameToast('🌙 Night 1 has begun! Village, close your eyes.');
+  showGameToast('🌙 Night 1 has begun');
   if (typeof callbacks.addHistoryLog === 'function') {
     callbacks.addHistoryLog('Night 1', 'Seating setup finalized. Night 1 started.');
   }

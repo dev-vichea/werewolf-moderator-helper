@@ -57,49 +57,54 @@
   filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.7));
 }
 
-/* FLOATING GAME TOAST NOTIFICATIONS */
+/* FLOATING MINIMAL GAME TOAST NOTIFICATIONS */
 #game-toast-container {
   position: fixed;
-  bottom: 82px;
+  bottom: 74px; /* Resting cleanly just above the bottom navigation bar */
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
   pointer-events: none;
-  width: 92%;
-  max-width: 520px;
+  width: auto;
+  max-width: 90vw;
 }
 
 .game-toast {
-  pointer-events: auto;
-  background: rgba(15, 23, 42, 0.96);
-  backdrop-filter: blur(12px);
-  border: 1.5px solid #a855f7;
-  box-shadow: 0 8px 30px rgba(168, 85, 247, 0.4), 0 4px 12px rgba(0,0,0,0.6);
-  border-radius: var(--radius-full);
-  padding: 0.55rem 1.15rem;
-  color: #f8fafc;
-  font-size: 0.84rem;
-  font-weight: 700;
-  display: flex;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 8px rgba(168, 85, 247, 0.15);
+  border-radius: 9999px;
+  padding: 0.28rem 0.8rem;
+  color: #f1f5f9;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  animation: toastPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  gap: 0.35rem;
+  white-space: nowrap;
+  max-width: 88vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: toastMinimalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .game-toast.toast-fadeout {
   opacity: 0;
-  transform: translateY(12px) scale(0.95);
+  transform: translateY(6px) scale(0.96);
 }
 
-@keyframes toastPopIn {
+@keyframes toastMinimalIn {
   from {
     opacity: 0;
-    transform: translateY(20px) scale(0.9);
+    transform: translateY(8px) scale(0.96);
   }
   to {
     opacity: 1;

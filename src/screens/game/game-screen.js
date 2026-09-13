@@ -253,7 +253,7 @@ export function confirmRestartGame(callbacks = {}) {
       }
       saveAppState();
       renderGameScreen();
-      showGameToast('↺ Game restarted back to Night 0 (Seating)');
+      showGameToast('↺ Restarted to Night 0');
     }
   });
 }

@@ -1108,7 +1108,7 @@ export function handleSeatSwapTap(playerId, callbacks = {}) {
     // First seat selected
     uiState.selectedSwapSeatId = playerId;
     soundManager.playPop();
-    showGameToast(`🪑 Selected #${player.seat} ${player.name}. Tap another player to swap seats.`);
+    showGameToast(`🪑 ${player.name} • Tap another to swap`, 1200);
     renderTouchTable();
     renderNightCaller();
     return;
@@ -1118,7 +1118,7 @@ export function handleSeatSwapTap(playerId, callbacks = {}) {
     // Tapping the same seat again cancels selection
     uiState.selectedSwapSeatId = null;
     soundManager.playBeep();
-    showGameToast(`Deselected #${player.seat} ${player.name}`);
+    showGameToast(`Deselected ${player.name}`, 1000);
     renderTouchTable();
     renderNightCaller();
     return;
@@ -1156,7 +1156,7 @@ export function swapPlayerSeats(playerAId, playerBId, callbacks = {}) {
 
   uiState.selectedSwapSeatId = null;
   soundManager.playChime();
-  showGameToast(`🔄 Swapped seats: ${playerA.name} ↔ ${playerB.name}`);
+  showGameToast(`🔄 ${playerA.name} ↔ ${playerB.name}`, 1200);
 
   if (typeof callbacks.addHistoryLog === 'function') {
     callbacks.addHistoryLog('Seating Swap', `Swapped seats between #${playerA.seat} ${playerA.name} and #${playerB.seat} ${playerB.name}`);
@@ -1190,7 +1190,7 @@ export function rotateTable(direction = 'clockwise', callbacks = {}) {
   }
 
   soundManager.playPop();
-  showGameToast(direction === 'clockwise' || direction === 'cw' ? '↻ Rotated table clockwise' : '↺ Rotated table counter-clockwise');
+  showGameToast(direction === 'clockwise' || direction === 'cw' ? '↻ Rotated Clockwise' : '↺ Rotated Counter', 1000);
 
   saveAppState();
   renderTouchTable();
