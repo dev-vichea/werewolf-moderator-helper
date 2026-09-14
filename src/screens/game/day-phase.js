@@ -43,6 +43,22 @@ export function resolveNightAndStartDay(callbacks = {}) {
     );
   }
 
+  // Handle Priest Holy Shield activation & break:
+  let priestShieldSavedPlayer = null;
+  if (gameState.priestShieldTarget) {
+    const shieldedPlayer = gameState.players.find(p => p.id === gameState.priestShieldTarget);
+    const wolfAttacked = (gameState.nightActions.wolfTarget === gameState.priestShieldTarget);
+    const savedByGuard = wolfAttacked && (gameState.nightActions.bodyguardTarget === gameState.priestShieldTarget);
+    const savedByWitch = wolfAttacked && gameState.nightActions.witchHealed && (!gameState.nightActions.witchHealTarget || gameState.nightActions.witchHealTarget === gameState.priestShieldTarget);
+    const wolfBlockedByPriest = wolfAttacked && !savedByGuard && !savedByWitch;
+    const poisonBlockedByPriest = (gameState.nightActions.witchPoisonTarget === gameState.priestShieldTarget);
+
+    if (wolfBlockedByPriest || poisonBlockedByPriest) {
+      priestShieldSavedPlayer = shieldedPlayer;
+      gameState.priestShieldTarget = null;
+    }
+  }
+
   if (gameState.nightActions.witchHealed) gameState.potions.witchHealAvailable = false;
   if (gameState.nightActions.witchPoisonTarget) gameState.potions.witchPoisonAvailable = false;
   gameState.nightActions.bodyguardLastTarget = gameState.nightActions.bodyguardTarget;
@@ -55,6 +71,20 @@ export function resolveNightAndStartDay(callbacks = {}) {
   const summary = deaths.length > 0 ? deaths.map(d => `${d.name} (${d.reason})`).join(', ') : 'Nobody died';
   if (typeof callbacks.addHistoryLog === 'function') {
     callbacks.addHistoryLog(`Night ${gameState.currentNight}`, `Morning arrived. Deaths: ${summary}`);
+  }
+  if (priestShieldSavedPlayer) {
+    if (typeof callbacks.addHistoryLog === 'function') {
+      callbacks.addHistoryLog('Holy Shield Activated', `Priest's Holy Shield protected #${priestShieldSavedPlayer.seat} ${priestShieldSavedPlayer.name} from lethal attack and shattered!`);
+    }
+    showCustomAlert(
+      `✝️ <strong>Holy Shield Activated!</strong><br><br>The Priest's Holy Shield protected <strong>#${priestShieldSavedPlayer.seat} ${priestShieldSavedPlayer.name}</strong> from a lethal nighttime attack and was consumed!<br><br><span style="color: #94a3b8; font-size: 0.88em;">The Priest will awaken on the next night to bestow a new shield.</span>`,
+      {
+        title: 'Holy Shield Activated',
+        icon: '✝️',
+        confirmText: 'Amen',
+        confirmClass: 'btn-primary'
+      }
+    );
   }
 
   // Transition to DAY
@@ -359,6 +389,12 @@ export function executeCurrentLynchLeader(callbacks = {}) {
     confirmClass: 'btn-danger',
     onConfirm: () => {
       leader.status = 'dead';
+      if (leader.id === gameState.priestShieldTarget) {
+        gameState.priestShieldTarget = null;
+        if (typeof callbacks.addHistoryLog === 'function') {
+          callbacks.addHistoryLog('Holy Shield Shattered', `Priest's shield on #${leader.seat} ${leader.name} broke due to daytime lynch.`);
+        }
+      }
       soundManager.playGong();
       if (typeof callbacks.addHistoryLog === 'function') {
         callbacks.addHistoryLog(`Day ${gameState.currentDay} Lynch`, `${leader.name} was executed.`);
@@ -386,6 +422,9 @@ export function executeCurrentLynchLeader(callbacks = {}) {
             confirmClass: 'btn-danger',
             onConfirm: () => {
               partner.status = 'dead';
+              if (partner.id === gameState.priestShieldTarget) {
+                gameState.priestShieldTarget = null;
+              }
               if (typeof callbacks.addHistoryLog === 'function') {
                 callbacks.addHistoryLog('Heartbreak', `${partner.name} died of grief.`);
               }
@@ -421,6 +460,7 @@ export function startNightPhase(callbacks = {}) {
       gameState.currentDay++;
       gameState.wizardStepIndex = 0;
       uiState.callerSubMode = 'target'; // Night 2+ is purely for skill targeting!
+      gameState.priestWakesTonight = (gameState.currentNight === 1 || !gameState.priestShieldTarget);
       gameState.players.forEach(p => {
         p.votes = 0;
       });

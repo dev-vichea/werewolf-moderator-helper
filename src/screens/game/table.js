@@ -10,7 +10,7 @@ import { showCustomAlert } from '../../ui/dialog.js';
 import { showGameToast } from '../../ui/toast.js';
 import { getEvenlySpacedEllipseAngles } from '../../utils/math.js';
 import { openPlayerActionSheet } from '../../ui/modal/action-sheet.js';
-import { previewNightDeaths, getInfectedCursedPlayer, handleWitchDirectPlayerTap } from './witch-potions.js';
+import { previewNightDeaths, getInfectedCursedPlayer, handleWitchDirectPlayerTap, shouldWitchAutoAdvance } from './witch-potions.js';
 import { getActiveNightSteps, setCallerSubMode, cancelAutoAdvance, scheduleAutoAdvance, nextWizardStep, renderNightCaller, isStepRoleDead, startNight1FromNight0 } from './night-caller.js';
 import { addPlayerVote, renderDayControls } from './day-phase.js';
 import { smartAutoFillRemainingRoles } from './autofill.js';
@@ -303,6 +303,19 @@ export function renderTouchTable() {
               hubSubtitle = 'Tap player to link';
               hubReady = false;
             }
+          } else if (activeStep.id === 'priest') {
+            const shielded = gameState.players.find(p => p.id === gameState.priestShieldTarget);
+            if (shielded) {
+              hubEmoji = '✝️';
+              hubTitle = `#${shielded.seat} ${shielded.name}`;
+              hubSubtitle = '✝️ Holy Shield! ▶';
+              hubReady = true;
+            } else {
+              hubEmoji = '✝️';
+              hubTitle = 'Priest';
+              hubSubtitle = 'Tap to shield';
+              hubReady = false;
+            }
           } else {
             hubEmoji = activeStep.icon || '🌙';
             hubTitle = activeStep.name || 'Night Action';
@@ -563,6 +576,7 @@ export function renderTouchTable() {
 
     const isWolfTarget = (gameState.nightActions.wolfTarget === p.id);
     const isShieldTarget = Boolean(p.isShielded || (gameState.nightActions.bodyguardTarget === p.id) || (gameState.nightActions.bodyguardLastTarget === p.id));
+    const isPriestShieldTarget = Boolean(gameState.priestShieldTarget === p.id);
     const isPoisonTarget = (gameState.nightActions.witchPoisonTarget === p.id);
     const isHealTarget = (gameState.nightActions.witchHealed && (gameState.nightActions.witchHealTarget === p.id || (!gameState.nightActions.witchHealTarget && gameState.nightActions.wolfTarget === p.id)));
     const isSilenced = Boolean(p.isSilenced || gameState.nightActions.spellcasterTarget === p.id);
@@ -577,6 +591,7 @@ export function renderTouchTable() {
       else if (isHealTarget) targetClass = 'targeted-heal';
       else if (isWolfTarget) targetClass = 'targeted-wolf';
       else if (isShieldTarget) targetClass = 'targeted-shield';
+      else if (isPriestShieldTarget) targetClass = 'targeted-priest';
       else if (isPoisonTarget) targetClass = 'targeted-poison';
       else if (isSilenced) targetClass = 'targeted-silence';
       else if (isMirrorTarget) targetClass = 'targeted-mirror';
@@ -611,6 +626,7 @@ export function renderTouchTable() {
         case 'Mason': turnBadgeText = '🤝 MASON'; break;
         case 'Spellcaster': turnBadgeText = '✨ SILENCE'; break;
         case 'Doppelganger': turnBadgeText = '🎭 MIMIC'; break;
+        case 'Priest': turnBadgeText = '✝️ PRIEST'; break;
         case 'Cursed': turnBadgeText = '🧟 CURSED'; break;
         default: turnBadgeText = '👁️ ACTIVE'; break;
       }
@@ -624,6 +640,7 @@ export function renderTouchTable() {
       if (p.isLover) statusEmojis.push({ emoji: '💘', title: 'Lover' });
     } else {
       if (isShieldTarget) statusEmojis.push({ emoji: '🛡️', title: 'Shielded (Protected)' });
+      if (isPriestShieldTarget) statusEmojis.push({ emoji: '✝️', title: 'Holy Shield (Protected from next night kill)' });
       if (p.isLover) statusEmojis.push({ emoji: '💘', title: 'Lover' });
       if (p.isMayor) statusEmojis.push({ emoji: '👑', title: 'Mayor' });
       if (isSilenced) statusEmojis.push({ emoji: '🤐', title: 'Silenced (Cannot Speak)' });
@@ -953,11 +970,16 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
       gameState.nightActions.witchHealTarget = playerId;
       uiState.witchSelectionMode = null;
       soundManager.playChime();
-      showGameToast(`💚 #${player.seat} ${player.name} was saved with Healing Potion!`);
       saveAppState();
       renderNightCaller(callbacks);
       renderTouchTable();
-      scheduleAutoAdvance(900, callbacks);
+      if (shouldWitchAutoAdvance()) {
+        showGameToast(`💚 #${player.seat} ${player.name} saved with Healing Potion! (Both potions used)`);
+        scheduleAutoAdvance(900, callbacks);
+      } else {
+        cancelAutoAdvance();
+        showGameToast(`💚 #${player.seat} ${player.name} saved! (Poison potion still available)`);
+      }
       return;
     } else if (uiState.witchSelectionMode === 'poison' || gameState.nightActions.witchArmPoison) {
       if (player.status !== 'alive') {
@@ -971,8 +993,13 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
       soundManager.playBeep();
       if (gameState.nightActions.witchPoisonTarget) {
         soundManager.playChime();
-        showGameToast(`☠️ #${player.seat} ${player.name} targeted for poison!`);
-        scheduleAutoAdvance(650, callbacks);
+        if (shouldWitchAutoAdvance()) {
+          showGameToast(`☠️ #${player.seat} ${player.name} targeted for poison! (Both potions used)`);
+          scheduleAutoAdvance(650, callbacks);
+        } else {
+          cancelAutoAdvance();
+          showGameToast(`☠️ #${player.seat} ${player.name} targeted for poison! (Heal potion still available)`);
+        }
       } else {
         showGameToast('☠️ Poison cancelled.');
         cancelAutoAdvance();
@@ -1069,6 +1096,25 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
       p.isLover = (p.id === gameState.nightActions.cupidLover1 || p.id === gameState.nightActions.cupidLover2);
     });
 
+    saveAppState();
+    renderNightCaller();
+    renderTouchTable();
+    return;
+  } else if (currentStep.id === 'priest') {
+    if (gameState.priestShieldTarget === playerId) {
+      gameState.priestShieldTarget = null;
+      cancelAutoAdvance();
+      soundManager.playBeep();
+      showGameToast(`✝️ Holy Shield removed from #${player.seat} ${player.name}`);
+    } else {
+      gameState.priestShieldTarget = playerId;
+      soundManager.playChime();
+      showGameToast(`✝️ Blessed #${player.seat} ${player.name} with Holy Shield!`);
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog('Holy Shield', `Priest placed Holy Shield on #${player.seat} ${player.name}`);
+      }
+      scheduleAutoAdvance(650, callbacks);
+    }
     saveAppState();
     renderNightCaller();
     renderTouchTable();

@@ -129,7 +129,28 @@ export function getActiveNightSteps() {
     }
   }
 
-  // 2. ACTIVE NIGHT SKILL ROLES (EVERY NIGHT)
+  // 2. ACTIVE NIGHT SKILL ROLES
+  // Priest (Night 1, and subsequent nights only if shield broke / not currently active)
+  const priestHolders = gameState.players.filter(p => p.role === 'Priest');
+  const priestAlive = (priestHolders.length === 0 || priestHolders.some(p => p.status === 'alive'));
+  const shouldPriestWake = isRoleInGame('Priest') && priestAlive && (
+    gameState.priestWakesTonight !== undefined
+      ? Boolean(gameState.priestWakesTonight)
+      : (gameState.currentNight === 1 || !gameState.priestShieldTarget)
+  );
+
+  if (shouldPriestWake) {
+    steps.push({
+      id: 'priest',
+      targetRole: 'Priest',
+      name: 'Priest',
+      icon: '✝️',
+      script: `"Priest, wake up and silently point to one player to place your Holy Shield upon them. Priest, close your eyes."`,
+      hasSkill: true,
+      actionName: 'Place Holy Shield'
+    });
+  }
+
   steps.push({
     id: 'werewolves',
     targetRole: 'Werewolf',
@@ -251,6 +272,11 @@ export function syncCallerSubMode() {
 export function renderNightCaller(callbacks = {}) {
   if (gameState.phase !== 'NIGHT') return;
   const cb = (callbacks && Object.keys(callbacks).length > 0) ? callbacks : (globalThis.appCallbacks || {});
+
+  if (gameState.priestWakesTonight === undefined) {
+    gameState.priestWakesTonight = (gameState.currentNight === 1 || !gameState.priestShieldTarget);
+  }
+
   syncCallerSubMode();
 
   const steps = getActiveNightSteps();
@@ -507,6 +533,14 @@ export function renderNightCaller(callbacks = {}) {
       targetBg = 'rgba(236, 72, 153, 0.2)';
       targetBorder = 'rgba(236, 72, 153, 0.4)';
     }
+  } else if (step.id === 'priest') {
+    if (gameState.priestShieldTarget) {
+      const p = gameState.players.find(x => x.id === gameState.priestShieldTarget);
+      currentTargetDesc = p ? `✝️ #${p.seat} ${p.name}` : 'None';
+      targetColor = '#38bdf8';
+      targetBg = 'rgba(56, 189, 248, 0.2)';
+      targetBorder = 'rgba(56, 189, 248, 0.4)';
+    }
   } else if (step.id === 'cupid') {
     const l1 = gameState.players.find(x => x.id === gameState.nightActions.cupidLover1);
     const l2 = gameState.players.find(x => x.id === gameState.nightActions.cupidLover2);
@@ -654,6 +688,15 @@ export function renderNightCaller(callbacks = {}) {
         targetBadge.style.color = targetColor;
         targetName.textContent = currentTargetDesc;
       }
+    } else if (step.id === 'priest') {
+      if (instructionText) instructionText.innerHTML = `<span>✝️</span> <strong>Ask Priest: "Who do you want to place the Holy Shield on?" (Tap player on table)</strong>`;
+      if (currentTargetDesc !== 'None' && targetBadge && targetName) {
+        targetBadge.style.display = 'inline-flex';
+        targetBadge.style.backgroundColor = targetBg;
+        targetBadge.style.borderColor = targetBorder;
+        targetBadge.style.color = targetColor;
+        targetName.textContent = currentTargetDesc;
+      }
     } else if (step.id === 'cupid') {
       if (instructionText) instructionText.innerHTML = `<span>🏹</span> <strong>Tap Lover 1, then Lover 2 on table</strong>`;
       if (currentTargetDesc !== 'None' && targetBadge && targetName) {
@@ -695,6 +738,7 @@ export function startNight1FromNight0(callbacks = {}) {
   const cb = (callbacks && Object.keys(callbacks).length > 0) ? callbacks : (globalThis.appCallbacks || {});
   gameState.currentNight = 1;
   gameState.wizardStepIndex = 0;
+  gameState.priestWakesTonight = true;
   uiState.callerSubMode = 'role';
   uiState.selectedSwapSeatId = null;
   soundManager.playGong();

@@ -33,6 +33,8 @@ export const gameState = {
     doppelgangerTarget: null
   },
   lastNightDeaths: [],
+  priestShieldTarget: null,
+  priestWakesTonight: true,
   history: [],
   timerRemaining: 90,
   timerRunning: false

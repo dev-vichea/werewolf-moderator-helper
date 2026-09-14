@@ -15,7 +15,8 @@ export const ROLES_CATALOG = [
   { name: 'Villager', team: 'Town', image: 'images/villager.jpeg', desc: 'Deduces and votes during day.', defaultCount: 3 },
   { name: 'Tanner', team: 'Neutral', image: 'images/tanner.jpeg', desc: 'Wins alone if lynched by town.', defaultCount: 0 },
   { name: 'Cursed', team: 'Town', image: 'images/cursed.jpeg', desc: 'Town until bitten by wolves, then turns Werewolf.', defaultCount: 0 },
-  { name: 'Prince', team: 'Town', image: 'images/prince.jpeg', desc: 'Cannot be lynched by town vote.', defaultCount: 0 }
+  { name: 'Prince', team: 'Town', image: 'images/prince.jpeg', desc: 'Cannot be lynched by town vote.', defaultCount: 0 },
+  { name: 'Priest', team: 'Town', image: 'images/priest.jpeg', desc: 'On Night 1, shields 1 player from the next nighttime kill attempt. The shield stays indefinitely until an attack occurs or the target is lynched. The night after it breaks, the Priest wakes up again to shield a new target.', defaultCount: 0 }
 ];
 
 export function getRoleData(roleName) {

@@ -830,6 +830,18 @@
   background: rgba(45, 35, 15, 0.95);
 }
 
+.table-touch-node.targeted-priest {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.85), 0 0 10px rgba(253, 224, 71, 0.6) !important;
+  background: rgba(15, 35, 55, 0.95);
+  animation: pulsePriest 1.8s infinite alternate ease-in-out;
+}
+
+@keyframes pulsePriest {
+  0% { transform: translate3d(-50%, -50%, 0) scale(1); box-shadow: 0 0 18px rgba(56, 189, 248, 0.7); }
+  100% { transform: translate3d(-50%, -50%, 0) scale(1.05); box-shadow: 0 0 28px rgba(56, 189, 248, 0.95), 0 0 14px rgba(253, 224, 71, 0.7); }
+}
+
 .table-touch-node.targeted-heal {
   border-color: #10b981 !important;
   box-shadow: 0 0 24px rgba(16, 185, 129, 0.85) !important;

@@ -109,6 +109,8 @@ export function startGameDirectNight1(callbacks = {}) {
     doppelgangerTarget: null
   };
   gameState.lastNightDeaths = [];
+  gameState.priestShieldTarget = null;
+  gameState.priestWakesTonight = true;
   gameState.history = [{ time: 'Start', text: `Game started at Night 0 (Seating Arrangement) with ${gameState.players.length} players.` }];
 
   const timerEl = document.getElementById('lobby-timer-select');
@@ -189,6 +191,8 @@ export function dealAndStartGame(callbacks = {}) {
     doppelgangerTarget: null
   };
   gameState.lastNightDeaths = [];
+  gameState.priestShieldTarget = null;
+  gameState.priestWakesTonight = true;
   gameState.history = [{ time: 'Start', text: `Auto-dealt game started at Night 0 (Seating Arrangement) with ${gameState.players.length} players.` }];
 
   const timerEl = document.getElementById('lobby-timer-select');
@@ -246,6 +250,8 @@ export function confirmRestartGame(callbacks = {}) {
         doppelgangerTarget: null
       };
       gameState.lastNightDeaths = [];
+      gameState.priestShieldTarget = null;
+      gameState.priestWakesTonight = true;
       pauseTimer();
       soundManager.playGong();
       if (typeof callbacks.addHistoryLog === 'function') {

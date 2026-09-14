@@ -24,9 +24,9 @@ export function openPlayerActionSheet(playerId) {
   document.getElementById('sheet-player-role').textContent = `${roleText} (${p.status.toUpperCase()})`;
   document.getElementById('sheet-player-notes').value = p.notes || '';
 
-  // 1-Tap Role Quick Picker Grid: Random first + Unknown + all 14 roles!
+  // 1-Tap Role Quick Picker Grid: Random first + Unknown + all roles!
   const pickerEl = document.getElementById('sheet-role-picker');
-  const allRoles = ['Unknown', 'Villager', 'Werewolf', 'Seer', 'Bodyguard', 'Witch', 'Hunter', 'Cupid', 'Mason', 'Spellcaster', 'Lycan', 'Doppelganger', 'Tanner', 'Cursed', 'Prince'];
+  const allRoles = ['Unknown', 'Villager', 'Werewolf', 'Seer', 'Bodyguard', 'Witch', 'Hunter', 'Cupid', 'Mason', 'Spellcaster', 'Lycan', 'Doppelganger', 'Priest', 'Tanner', 'Cursed', 'Prince'];
   const randomChip = `
     <button class="sheet-role-btn sheet-random-role-btn" onclick="sheetAssignRandomRole()" title="Assign a random unassigned role from deck">
       <span style="font-size: 1.3rem;">🎲</span>
@@ -55,6 +55,13 @@ export function openPlayerActionSheet(playerId) {
   if (shieldBtn) {
     shieldBtn.textContent = p.isShielded ? '🛡️ Remove Shield' : '🛡️ Give Shield';
     shieldBtn.className = p.isShielded ? 'btn btn-warning' : 'btn btn-outline';
+  }
+
+  const priestShieldBtn = document.getElementById('sheet-toggle-priest-shield-btn');
+  if (priestShieldBtn) {
+    const hasPriestShield = (gameState.priestShieldTarget === p.id);
+    priestShieldBtn.textContent = hasPriestShield ? '✝️ Remove Holy Shield' : '✝️ Give Holy Shield';
+    priestShieldBtn.className = hasPriestShield ? 'btn btn-primary' : 'btn btn-outline';
   }
 
   const silenceBtn = document.getElementById('sheet-toggle-silence-btn');
@@ -297,6 +304,34 @@ export function sheetToggleShield(callbacks = {}) {
   showGameToast(p.isShielded ? `🛡️ #${p.seat} ${p.name} is now shielded!` : `🛡️ Shield removed from #${p.seat} ${p.name}.`);
   if (typeof callbacks.addHistoryLog === 'function') {
     callbacks.addHistoryLog('Shield Override', `${p.name} ${p.isShielded ? 'granted shield 🛡️' : 'shield removed'}`);
+  }
+  saveAppState();
+  closePlayerActionSheet();
+  if (typeof callbacks.renderGameScreen === 'function') {
+    callbacks.renderGameScreen();
+  } else if (typeof globalThis.renderGameScreen === 'function') {
+    globalThis.renderGameScreen();
+  }
+}
+
+export function sheetTogglePriestShield(callbacks = {}) {
+  if (!uiState.sheetTargetPlayerId) return;
+  const p = gameState.players.find(x => x.id === uiState.sheetTargetPlayerId);
+  if (!p) return;
+  if (gameState.priestShieldTarget === p.id) {
+    gameState.priestShieldTarget = null;
+    soundManager.playBeep();
+    showGameToast(`✝️ Holy Shield removed from #${p.seat} ${p.name}.`);
+    if (typeof callbacks.addHistoryLog === 'function') {
+      callbacks.addHistoryLog('Priest Override', `${p.name} Holy Shield removed`);
+    }
+  } else {
+    gameState.priestShieldTarget = p.id;
+    soundManager.playChime();
+    showGameToast(`✝️ #${p.seat} ${p.name} granted Priest's Holy Shield!`);
+    if (typeof callbacks.addHistoryLog === 'function') {
+      callbacks.addHistoryLog('Priest Override', `${p.name} granted Priest's Holy Shield ✝️`);
+    }
   }
   saveAppState();
   closePlayerActionSheet();
