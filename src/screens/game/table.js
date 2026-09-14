@@ -181,8 +181,8 @@ export function renderTouchTable() {
           hubSubtitle = 'Ready! Tap to Next ▶';
           hubReady = true;
         } else {
-          hubSubtitle = '🎲 Tap: Random Player';
-          hubReady = true;
+          hubSubtitle = 'Tap player to set';
+          hubReady = false;
         }
       } else {
         const holders = gameState.players.filter(p => p.role === activeStep.targetRole);
@@ -195,8 +195,8 @@ export function renderTouchTable() {
             hubSubtitle = 'Ready! Tap Target 🎯';
             hubReady = true;
           } else {
-            hubSubtitle = '🎲 Tap: Random Player';
-            hubReady = true;
+            hubSubtitle = 'Tap player to set';
+            hubReady = false;
           }
         } else {
           if (activeStep.id === 'werewolves') {
@@ -387,12 +387,6 @@ export function renderTouchTable() {
           if (healBadge) healBadge.style.display = 'none';
           if (healTitle) healTitle.textContent = 'Heal Potion';
           if (healDesc) healDesc.textContent = 'Used (0 Left)';
-        } else if (gameState.nightActions.witchPoisonTarget) {
-          healBtn.className = 'witch-hub-btn heal disabled-night';
-          healBtn.title = 'Locked: Poison already used tonight (1 potion/night limit)';
-          if (healBadge) healBadge.style.display = 'none';
-          if (healTitle) healTitle.textContent = 'Heal Potion';
-          if (healDesc) healDesc.textContent = 'Locked (1/night)';
         } else if (gameState.nightActions.witchHealed) {
           healBtn.className = 'witch-hub-btn heal active-used';
           const hPlayer = gameState.players.find(p => p.id === (gameState.nightActions.witchHealTarget || gameState.nightActions.wolfTarget));
@@ -430,12 +424,6 @@ export function renderTouchTable() {
           if (poisonBadge) poisonBadge.style.display = 'none';
           if (poisonTitle) poisonTitle.textContent = 'Poison Potion';
           if (poisonDesc) poisonDesc.textContent = 'Used (0 Left)';
-        } else if (gameState.nightActions.witchHealed) {
-          poisonBtn.className = 'witch-hub-btn poison disabled-night';
-          poisonBtn.title = 'Locked: Heal already used tonight (1 potion/night limit)';
-          if (poisonBadge) poisonBadge.style.display = 'none';
-          if (poisonTitle) poisonTitle.textContent = 'Poison Potion';
-          if (poisonDesc) poisonDesc.textContent = 'Locked (1/night)';
         } else if (uiState.witchSelectionMode === 'poison') {
           poisonBtn.className = 'witch-hub-btn poison selecting';
           poisonBtn.title = 'Poisoning... Tap player on table';
@@ -504,12 +492,18 @@ export function renderTouchTable() {
     startNight1Btn.style.display = (gameState.phase === 'NIGHT' && gameState.currentNight === 0) ? 'inline-flex' : 'none';
   }
 
-  // Update Toolbar Auto-Fill Button visibility & count
+  // Update Toolbar Random Roles Button visibility & label
   const unknownCount = gameState.players.filter(p => p.role === 'Unknown').length;
   const tableAutofillBtn = document.getElementById('table-autofill-btn');
   if (tableAutofillBtn) {
-    tableAutofillBtn.style.display = (unknownCount > 0 && gameState.currentNight >= 1) ? 'inline-flex' : 'none';
-    tableAutofillBtn.textContent = `⚡ Auto-Fill (${unknownCount})`;
+    tableAutofillBtn.style.display = 'inline-flex';
+    if (unknownCount === 0) {
+      tableAutofillBtn.textContent = '🎲 Re-Randomize All';
+    } else if (unknownCount === gameState.players.length) {
+      tableAutofillBtn.textContent = '🎲 Random All Roles';
+    } else {
+      tableAutofillBtn.textContent = `🎲 Random Roles (${unknownCount})`;
+    }
   }
 
   const steps = (gameState.phase === 'NIGHT') ? getActiveNightSteps() : [];
@@ -949,14 +943,6 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
     renderTouchTable();
   } else if (currentStep.id === 'witch') {
     if (uiState.witchSelectionMode === 'heal') {
-      if (gameState.nightActions.witchPoisonTarget) {
-        soundManager.playBeep();
-        showCustomAlert('⚠️ The Witch can only use ONE potion per night!\n\nPoison was already used tonight. Cancel poison first to use the healing potion.', {
-          title: 'One Potion Per Night',
-          icon: '⚠️'
-        });
-        return;
-      }
       if (playerId !== gameState.nightActions.wolfTarget) {
         soundManager.playBeep();
         const wolfVictim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget);
@@ -969,21 +955,14 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
       soundManager.playChime();
       showGameToast(`💚 #${player.seat} ${player.name} was saved with Healing Potion!`);
       saveAppState();
-      renderNightCaller();
+      renderNightCaller(callbacks);
       renderTouchTable();
+      scheduleAutoAdvance(900, callbacks);
       return;
     } else if (uiState.witchSelectionMode === 'poison' || gameState.nightActions.witchArmPoison) {
       if (player.status !== 'alive') {
         soundManager.playBeep();
         showGameToast('⚠️ Cannot poison deceased players.');
-        return;
-      }
-      if (gameState.nightActions.witchHealed) {
-        soundManager.playBeep();
-        showCustomAlert('⚠️ The Witch can only use ONE potion per night!\n\nHealing potion was already used tonight. Cancel heal first to use the poison potion.', {
-          title: 'One Potion Per Night',
-          icon: '⚠️'
-        });
         return;
       }
       gameState.nightActions.witchPoisonTarget = (gameState.nightActions.witchPoisonTarget === playerId) ? null : playerId;
@@ -993,11 +972,13 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
       if (gameState.nightActions.witchPoisonTarget) {
         soundManager.playChime();
         showGameToast(`☠️ #${player.seat} ${player.name} targeted for poison!`);
+        scheduleAutoAdvance(650, callbacks);
       } else {
         showGameToast('☠️ Poison cancelled.');
+        cancelAutoAdvance();
       }
       saveAppState();
-      renderNightCaller();
+      renderNightCaller(callbacks);
       renderTouchTable();
       return;
     } else {

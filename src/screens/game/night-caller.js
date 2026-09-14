@@ -140,14 +140,13 @@ export function getActiveNightSteps() {
     actionName: 'Kill Victim'
   });
 
-  const witchPotionsDepleted = (gameState.potions && !gameState.potions.witchHealAvailable && !gameState.potions.witchPoisonAvailable);
-  if (isRoleInGame('Witch') && !witchPotionsDepleted) {
+  if (isRoleInGame('Witch')) {
     steps.push({
       id: 'witch',
       targetRole: 'Witch',
       name: 'Witch',
       icon: '🧪',
-      script: `"Witch, wake up. A victim was attacked tonight. Do you want to use your heal or poison?"`,
+      script: `"Witch, wake up. A victim was attacked tonight. You may use your healing potion, your poison potion, or both."`,
       hasSkill: true,
       actionName: 'Heal / Poison'
     });
@@ -249,8 +248,9 @@ export function syncCallerSubMode() {
   }
 }
 
-export function renderNightCaller() {
+export function renderNightCaller(callbacks = {}) {
   if (gameState.phase !== 'NIGHT') return;
+  const cb = (callbacks && Object.keys(callbacks).length > 0) ? callbacks : (globalThis.appCallbacks || {});
   syncCallerSubMode();
 
   const steps = getActiveNightSteps();
@@ -291,11 +291,20 @@ export function renderNightCaller() {
     nextBtn.style.borderColor = '';
     nextBtn.style.color = '';
     nextBtn.textContent = 'Next ▶';
-    nextBtn.onclick = () => nextWizardStep(callbacks);
+    nextBtn.onclick = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      cancelAutoAdvance();
+      nextWizardStep(cb);
+    };
   }
   if (prevBtn) {
     prevBtn.style.display = 'inline-flex';
     prevBtn.disabled = (gameState.wizardStepIndex === 0);
+    prevBtn.onclick = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      cancelAutoAdvance();
+      prevWizardStep(cb);
+    };
   }
 
   // Night 0 Seating Step
@@ -311,13 +320,19 @@ export function renderNightCaller() {
       nextBtn.style.color = '#ffffff';
       nextBtn.style.fontWeight = '800';
       nextBtn.textContent = '🌙 Begin Night 1 ▶';
-      nextBtn.onclick = () => startNight1FromNight0(callbacks);
+      nextBtn.onclick = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        startNight1FromNight0(cb);
+      };
     }
     const selectedP = uiState.selectedSwapSeatId ? gameState.players.find(p => p.id === uiState.selectedSwapSeatId) : null;
     if (modePillsEl) {
       modePillsEl.innerHTML = `
         <button class="caller-mode-btn ${selectedP ? 'active' : ''}" style="font-weight: 700;">
           ${selectedP ? `🔄 Selected: #${selectedP.seat} ${selectedP.name} (Tap another player to swap)` : `👉 Tap any 2 players to swap seats`}
+        </button>
+        <button class="caller-mode-btn" style="border-color: rgba(192, 132, 252, 0.6); color: #c084fc; font-weight: 800;" onclick="randomizeAllRoles(true)">
+          🎲 Random Roles to All
         </button>
         <button class="caller-mode-btn" style="border-color: rgba(56, 189, 248, 0.5); color: #38bdf8;" onclick="rotateTable('clockwise')">
           ↻ Rotate Clockwise
@@ -463,7 +478,27 @@ export function renderNightCaller() {
     }
   } else if (step.id === 'witch') {
     const victim = gameState.players.find(x => x.id === gameState.nightActions.wolfTarget);
-    currentTargetDesc = victim ? `#${victim.seat} ${victim.name}` : 'Nobody';
+    const healed = gameState.nightActions.witchHealed;
+    const poisonTarget = gameState.players.find(x => x.id === gameState.nightActions.witchPoisonTarget);
+
+    if (healed && poisonTarget) {
+      currentTargetDesc = `💚 #${victim ? victim.seat : '?'} & ☠️ #${poisonTarget.seat}`;
+      targetColor = '#34d399';
+      targetBg = 'rgba(16, 185, 129, 0.2)';
+      targetBorder = 'rgba(16, 185, 129, 0.4)';
+    } else if (healed) {
+      currentTargetDesc = `💚 Saved #${victim ? victim.seat : '?'}`;
+      targetColor = '#34d399';
+      targetBg = 'rgba(16, 185, 129, 0.2)';
+      targetBorder = 'rgba(16, 185, 129, 0.4)';
+    } else if (poisonTarget) {
+      currentTargetDesc = `☠️ Poison #${poisonTarget.seat}`;
+      targetColor = '#f87171';
+      targetBg = 'rgba(239, 68, 68, 0.2)';
+      targetBorder = 'rgba(239, 68, 68, 0.4)';
+    } else {
+      currentTargetDesc = victim ? `#${victim.seat} ${victim.name}` : 'Nobody';
+    }
   } else if (step.id === 'doppelganger') {
     if (gameState.nightActions.doppelgangerTarget) {
       const p = gameState.players.find(x => x.id === gameState.nightActions.doppelgangerTarget);
@@ -558,13 +593,16 @@ export function renderNightCaller() {
       const alreadyPoisoned = Boolean(gameState.nightActions.witchPoisonTarget);
 
       if (instructionText) {
-        if (alreadyHealed) {
-          instructionText.innerHTML = `💚 <strong>Healed: ${victimName}</strong> <span style="color: #cbd5e1; font-size: 0.85em;">(Limit: 1 potion per night)</span>`;
+        if (alreadyHealed && alreadyPoisoned) {
+          const poisonedP = gameState.players.find(p => p.id === gameState.nightActions.witchPoisonTarget);
+          instructionText.innerHTML = `💚 <strong>Saved: ${victimName}</strong> &nbsp;|&nbsp; ☠️ <strong>Poisoned: #${poisonedP ? poisonedP.seat + ' ' + poisonedP.name : 'Player'}</strong>`;
+        } else if (alreadyHealed) {
+          instructionText.innerHTML = `💚 <strong>Saved: ${victimName}</strong> <span style="color: #94a3b8; font-size: 0.85em;">(Poison potion ready to use)</span>`;
         } else if (alreadyPoisoned) {
           const poisonedP = gameState.players.find(p => p.id === gameState.nightActions.witchPoisonTarget);
-          instructionText.innerHTML = `☠️ <strong>Poisoned: #${poisonedP ? poisonedP.seat + ' ' + poisonedP.name : 'Player'}</strong> <span style="color: #cbd5e1; font-size: 0.85em;">(Limit: 1 potion per night)</span>`;
+          instructionText.innerHTML = `☠️ <strong>Poisoned: #${poisonedP ? poisonedP.seat + ' ' + poisonedP.name : 'Player'}</strong> <span style="color: #94a3b8; font-size: 0.85em;">(Heal potion ready to use)</span>`;
         } else {
-          instructionText.innerHTML = `Attacked victim: <strong style="color: ${victim ? '#f87171' : '#4ade80'}; margin-left: 0.25rem;">${victimName}</strong>`;
+          instructionText.innerHTML = `Attacked victim: <strong style="color: ${victim ? '#f87171' : '#4ade80'}; margin-left: 0.25rem;">${victimName}</strong> <span style="color: #94a3b8; font-size: 0.85em;">(Can use both potions)</span>`;
         }
       }
 
@@ -580,10 +618,6 @@ export function renderNightCaller() {
           healBtn.className = 'btn btn-outline';
           healBtn.textContent = '💚 Heal (Used)';
           healBtn.disabled = true;
-        } else if (alreadyPoisoned) {
-          healBtn.className = 'btn btn-outline';
-          healBtn.textContent = '💚 Heal (Locked: 1/Night)';
-          healBtn.disabled = false;
         } else if (!victim) {
           healBtn.className = 'btn btn-outline';
           healBtn.textContent = '💚 Heal (No Victim)';
@@ -605,10 +639,6 @@ export function renderNightCaller() {
           poisonBtn.className = 'btn btn-outline';
           poisonBtn.textContent = '🧪 Poison (Used)';
           poisonBtn.disabled = true;
-        } else if (alreadyHealed) {
-          poisonBtn.className = 'btn btn-outline';
-          poisonBtn.textContent = '🧪 Poison (Locked: 1/Night)';
-          poisonBtn.disabled = false;
         } else {
           poisonBtn.className = uiState.witchSelectionMode === 'poison' ? 'btn btn-danger' : 'btn btn-outline btn-danger';
           poisonBtn.textContent = uiState.witchSelectionMode === 'poison' ? '👉 Tap target on table' : '🧪 Poison Player';
@@ -645,7 +675,6 @@ export function cancelAutoAdvance() {
   const nextBtn = document.getElementById('caller-next-btn');
   if (nextBtn) {
     nextBtn.classList.remove('auto-advancing');
-    nextBtn.textContent = 'Next Step ▶';
   }
 }
 
@@ -654,30 +683,31 @@ export function scheduleAutoAdvance(delayMs = 600, callbacks = {}) {
   const nextBtn = document.getElementById('caller-next-btn');
   if (nextBtn) {
     nextBtn.classList.add('auto-advancing');
-    nextBtn.textContent = 'Next Step ⏩';
   }
+  const cb = (callbacks && Object.keys(callbacks).length > 0) ? callbacks : (globalThis.appCallbacks || {});
   autoAdvanceTimeout = setTimeout(() => {
     cancelAutoAdvance();
-    nextWizardStep(callbacks);
+    nextWizardStep(cb);
   }, delayMs);
 }
 
 export function startNight1FromNight0(callbacks = {}) {
+  const cb = (callbacks && Object.keys(callbacks).length > 0) ? callbacks : (globalThis.appCallbacks || {});
   gameState.currentNight = 1;
   gameState.wizardStepIndex = 0;
   uiState.callerSubMode = 'role';
   uiState.selectedSwapSeatId = null;
   soundManager.playGong();
   showGameToast('🌙 Night 1 has begun');
-  if (typeof callbacks.addHistoryLog === 'function') {
-    callbacks.addHistoryLog('Night 1', 'Seating setup finalized. Night 1 started.');
+  if (typeof cb.addHistoryLog === 'function') {
+    cb.addHistoryLog('Night 1', 'Seating setup finalized. Night 1 started.');
   }
   saveAppState();
-  if (typeof callbacks.renderGameScreen === 'function') callbacks.renderGameScreen();
+  if (typeof cb.renderGameScreen === 'function') cb.renderGameScreen();
   else if (typeof globalThis.renderGameScreen === 'function') globalThis.renderGameScreen();
-  if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
+  if (typeof cb.renderNightCaller === 'function') cb.renderNightCaller(cb);
   else if (typeof globalThis.renderNightCaller === 'function') globalThis.renderNightCaller();
-  if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+  if (typeof cb.renderTouchTable === 'function') cb.renderTouchTable();
   else if (typeof globalThis.renderTouchTable === 'function') globalThis.renderTouchTable();
 }
 
@@ -686,8 +716,10 @@ export function nextWizardStep(callbacks = {}) {
   uiState.witchSelectionMode = null;
   uiState.userExplicitRoleMode = false;
 
+  const cb = (callbacks && Object.keys(callbacks).length > 0) ? callbacks : (globalThis.appCallbacks || {});
+
   if (gameState.currentNight === 0) {
-    startNight1FromNight0(callbacks);
+    startNight1FromNight0(cb);
     return;
   }
 
@@ -703,8 +735,8 @@ export function nextWizardStep(callbacks = {}) {
     }
     soundManager.playBeep();
     saveAppState();
-    renderNightCaller();
-    const renderTableFn = typeof callbacks.renderTouchTable === 'function' ? callbacks.renderTouchTable : (typeof globalThis.renderTouchTable === 'function' ? globalThis.renderTouchTable : null);
+    renderNightCaller(cb);
+    const renderTableFn = typeof cb.renderTouchTable === 'function' ? cb.renderTouchTable : (typeof globalThis.renderTouchTable === 'function' ? globalThis.renderTouchTable : null);
     if (renderTableFn) renderTableFn();
   }
 }
@@ -713,6 +745,9 @@ export function prevWizardStep(callbacks = {}) {
   cancelAutoAdvance();
   uiState.witchSelectionMode = null;
   uiState.userExplicitRoleMode = false;
+
+  const cb = (callbacks && Object.keys(callbacks).length > 0) ? callbacks : (globalThis.appCallbacks || {});
+
   if (gameState.wizardStepIndex > 0) {
     gameState.wizardStepIndex--;
     const prevStep = getActiveNightSteps()[gameState.wizardStepIndex];
@@ -721,9 +756,10 @@ export function prevWizardStep(callbacks = {}) {
       const targetCount = getRoleTargetCount(prevStep.targetRole);
       uiState.callerSubMode = (prevStep.hasSkill && (holders.length >= targetCount || gameState.currentNight >= 2)) ? 'target' : 'role';
     }
+    soundManager.playBeep();
     saveAppState();
-    renderNightCaller();
-    const renderTableFn = typeof callbacks.renderTouchTable === 'function' ? callbacks.renderTouchTable : (typeof globalThis.renderTouchTable === 'function' ? globalThis.renderTouchTable : null);
+    renderNightCaller(cb);
+    const renderTableFn = typeof cb.renderTouchTable === 'function' ? cb.renderTouchTable : (typeof globalThis.renderTouchTable === 'function' ? globalThis.renderTouchTable : null);
     if (renderTableFn) renderTableFn();
   }
 }

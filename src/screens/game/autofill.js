@@ -63,8 +63,13 @@ export function smartAutoFillRemainingRoles(isExplicitManualOrSunrise = false, c
     }
     // CASE 4: Explicit manual click OR Sunrise resolution
     else if (isExplicitManualOrSunrise) {
+      const shuffledMissing = [...missingRoles];
+      for (let i = shuffledMissing.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledMissing[i], shuffledMissing[j]] = [shuffledMissing[j], shuffledMissing[i]];
+      }
       unknownPlayers.forEach((p, idx) => {
-        const autoRole = missingRoles[idx] || 'Villager';
+        const autoRole = shuffledMissing[idx] || 'Villager';
         p.role = autoRole;
         assignedUpdates.push({ player: p, role: autoRole });
       });
@@ -107,21 +112,112 @@ export function checkAutoFillLastUnknownRole(callbacks = {}) {
   return smartAutoFillRemainingRoles(false, callbacks);
 }
 
-export function manualTriggerAutoFill(callbacks = {}) {
+/**
+ * One-click random role assignment for all players (or remaining unknown players).
+ * Shuffles roles from the lobby deck (or balanced default setup) using Fisher-Yates.
+ */
+export function randomizeAllRoles(forceAll = false, callbacks = {}) {
+  if (!gameState.inProgress || !gameState.players || gameState.players.length === 0) return [];
+
+  const total = gameState.players.length;
   const unknowns = gameState.players.filter(p => p.role === 'Unknown');
-  if (unknowns.length === 0) {
-    showGameToast('All players already have assigned roles! 👍');
-    return;
-  }
-  const updates = smartAutoFillRemainingRoles(true, callbacks);
-  if (updates.length === 0) {
-    showGameToast('No remaining roles could be auto-filled.');
-  } else {
-    // Re-render caller and table to ensure the night action (e.g. Werewolves Kill) is actively prompted
-    if (typeof callbacks.renderGameScreen === 'function') {
-      callbacks.renderGameScreen();
+
+  // If forceAll is true, or if all players are unknown, or if none are unknown (re-randomize), target everyone
+  const shouldTargetAll = forceAll || unknowns.length === total || unknowns.length === 0;
+  const targetPlayers = shouldTargetAll ? gameState.players : unknowns;
+
+  // 1. Build pool of roles
+  let pool = [];
+  const deck = lobbyState.roleDeck || {};
+  const hasDeck = Object.keys(deck).length > 0 && Object.values(deck).some(v => v > 0);
+
+  if (hasDeck) {
+    if (shouldTargetAll) {
+      for (const [role, count] of Object.entries(deck)) {
+        for (let i = 0; i < count; i++) pool.push(role);
+      }
+    } else {
+      // Determine remaining roles from deck that haven't been assigned yet
+      const assignedCounts = {};
+      gameState.players.forEach(p => {
+        if (p.role && p.role !== 'Unknown' && !targetPlayers.includes(p)) {
+          assignedCounts[p.role] = (assignedCounts[p.role] || 0) + 1;
+        }
+      });
+      for (const [role, count] of Object.entries(deck)) {
+        const assigned = assignedCounts[role] || 0;
+        const needed = Math.max(0, count - assigned);
+        for (let i = 0; i < needed; i++) pool.push(role);
+      }
     }
   }
+
+  // If pool is insufficient for target players, fill with balanced roles or Villagers
+  if (pool.length < targetPlayers.length) {
+    if (pool.length === 0) {
+      const wolfCount = targetPlayers.length >= 10 ? 3 : (targetPlayers.length >= 6 ? 2 : 1);
+      for (let i = 0; i < wolfCount; i++) pool.push('Werewolf');
+      pool.push('Seer');
+      if (targetPlayers.length >= 6) pool.push('Witch');
+      if (targetPlayers.length >= 8) pool.push('Bodyguard');
+      if (targetPlayers.length >= 10) pool.push('Hunter');
+    }
+    while (pool.length < targetPlayers.length) {
+      pool.push('Villager');
+    }
+  }
+
+  // Truncate if pool has more items than targetPlayers
+  if (pool.length > targetPlayers.length) {
+    pool = pool.slice(0, targetPlayers.length);
+  }
+
+  // 2. Fisher-Yates shuffle the pool
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  // 3. Assign roles
+  targetPlayers.forEach((p, idx) => {
+    p.role = pool[idx] || 'Villager';
+  });
+
+  soundManager.playFanfare();
+  showGameToast(`🎲 Random roles assigned to all ${targetPlayers.length} players!`, 2000);
+
+  if (typeof callbacks.addHistoryLog === 'function') {
+    callbacks.addHistoryLog('Random Roles', `One-click randomized roles for ${targetPlayers.length} players.`);
+  }
+
+  // If currently in Night phase and on a skill step whose holders are now filled, transition subMode if appropriate
+  if (gameState.phase === 'NIGHT' && gameState.currentNight >= 1) {
+    const steps = getActiveNightSteps();
+    const currentStep = steps ? steps[gameState.wizardStepIndex] : null;
+    if (currentStep && currentStep.hasSkill && currentStep.targetRole) {
+      const holders = gameState.players.filter(p => p.role === currentStep.targetRole);
+      const targetCount = getRoleTargetCount(currentStep.targetRole, lobbyState);
+      if (holders.length >= targetCount && targetCount > 0) {
+        uiState.callerSubMode = 'target';
+        uiState.userExplicitRoleMode = false;
+      }
+    }
+  }
+
+  saveAppState();
+
+  if (typeof callbacks.renderGameScreen === 'function') callbacks.renderGameScreen();
+  else if (typeof globalThis.renderGameScreen === 'function') globalThis.renderGameScreen();
+  if (typeof callbacks.renderNightCaller === 'function') callbacks.renderNightCaller();
+  else if (typeof globalThis.renderNightCaller === 'function') globalThis.renderNightCaller();
+  if (typeof callbacks.renderTouchTable === 'function') callbacks.renderTouchTable();
+  else if (typeof globalThis.renderTouchTable === 'function') globalThis.renderTouchTable();
+
+  return targetPlayers;
+}
+
+export function manualTriggerAutoFill(callbacks = {}) {
+  return randomizeAllRoles(false, callbacks);
 }
 
 export function checkDoppelgangerTrigger(killedPlayerId, callbacks = {}) {

@@ -19,7 +19,7 @@ import { toggleTableExpand, setupTableResizeObserver, renderTouchTable, setupPla
 import { handleCenterHubTap } from './screens/game/center-hub.js';
 import { handleWitchPotionBtnTap, handleWitchDirectPlayerTap, toggleWitchHealTouch, armWitchPoisonTouch, previewNightDeaths, getInfectedCursedPlayer } from './screens/game/witch-potions.js';
 import { resolveNightAndStartDay, renderDayControls, addPlayerVote, decrementPlayerVote, resetAllVotes, executeCurrentLynchLeader, startNightPhase } from './screens/game/day-phase.js';
-import { smartAutoFillRemainingRoles, checkAutoFillLastUnknownRole, manualTriggerAutoFill, checkDoppelgangerTrigger, assignRandomPlayerForRole } from './screens/game/autofill.js';
+import { smartAutoFillRemainingRoles, checkAutoFillLastUnknownRole, manualTriggerAutoFill, checkDoppelgangerTrigger, assignRandomPlayerForRole, randomizeAllRoles } from './screens/game/autofill.js';
 import { switchLogSubtab, addHistoryLog, renderHistoryTimeline, clearHistoryLog, renderRolesGuide } from './screens/log/log-roles.js';
 
 // --- Navigation Controller ---
@@ -86,6 +86,7 @@ function wrappedArmWitchPoisonTouch() { return armWitchPoisonTouch(appCallbacks)
 function wrappedSmartAutoFillRemainingRoles(explicit) { return smartAutoFillRemainingRoles(explicit, appCallbacks); }
 function wrappedCheckAutoFillLastUnknownRole() { return checkAutoFillLastUnknownRole(appCallbacks); }
 function wrappedManualTriggerAutoFill() { return manualTriggerAutoFill(appCallbacks); }
+function wrappedRandomizeAllRoles(forceAll) { return randomizeAllRoles(forceAll, appCallbacks); }
 function wrappedCheckDoppelgangerTrigger(id) { return checkDoppelgangerTrigger(id, appCallbacks); }
 function wrappedAssignRandomPlayerForRole(targetRole) { return assignRandomPlayerForRole(targetRole, appCallbacks); }
 function wrappedConfirmRestartGame() { return confirmRestartGame(appCallbacks); }
@@ -108,6 +109,7 @@ const appCallbacks = {
   switchNavTab,
   addHistoryLog,
   smartAutoFillRemainingRoles: wrappedSmartAutoFillRemainingRoles,
+  randomizeAllRoles: wrappedRandomizeAllRoles,
   checkDoppelgangerTrigger: wrappedCheckDoppelgangerTrigger,
   assignRandomPlayerForRole: wrappedAssignRandomPlayerForRole,
   triggerHunterRevenge,
@@ -242,6 +244,7 @@ const exposedExports = {
   smartAutoFillRemainingRoles: wrappedSmartAutoFillRemainingRoles,
   checkAutoFillLastUnknownRole: wrappedCheckAutoFillLastUnknownRole,
   manualTriggerAutoFill: wrappedManualTriggerAutoFill,
+  randomizeAllRoles: wrappedRandomizeAllRoles,
   checkDoppelgangerTrigger: wrappedCheckDoppelgangerTrigger,
   assignRandomPlayerForRole: wrappedAssignRandomPlayerForRole,
   switchLogSubtab,
@@ -364,6 +367,7 @@ export {
   wrappedSmartAutoFillRemainingRoles as smartAutoFillRemainingRoles,
   wrappedCheckAutoFillLastUnknownRole as checkAutoFillLastUnknownRole,
   wrappedManualTriggerAutoFill as manualTriggerAutoFill,
+  wrappedRandomizeAllRoles as randomizeAllRoles,
   wrappedCheckDoppelgangerTrigger as checkDoppelgangerTrigger,
   wrappedAssignRandomPlayerForRole as assignRandomPlayerForRole,
   switchLogSubtab,
@@ -382,6 +386,7 @@ if (typeof window !== 'undefined') scopes.add(window);
 if (typeof global !== 'undefined') scopes.add(global);
 
 scopes.forEach(s => {
+  s.appCallbacks = appCallbacks;
   for (const [key, val] of Object.entries(exposedExports)) {
     s[key] = val;
   }

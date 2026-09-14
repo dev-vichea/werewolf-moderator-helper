@@ -6,7 +6,6 @@ import { gameState, lobbyState, uiState } from '../../state/store.js';
 import { soundManager } from '../../audio/sound.js';
 import { getRoleTargetCount } from '../../state/roles.js';
 import { getActiveNightSteps, renderNightCaller, isStepRoleDead } from './night-caller.js';
-import { assignRandomPlayerForRole } from './autofill.js';
 
 export function handleCenterHubTap(callbacks = {}) {
   soundManager.playBeep();
@@ -50,14 +49,9 @@ export function handleCenterHubTap(callbacks = {}) {
     }
 
     // If on a role-assignment step:
-    // Tapping the center hub assigns a random unknown player to this role!
     if (currentStep && currentStep.targetRole && uiState.callerSubMode === 'role') {
       const holders = gameState.players.filter(p => p.role === currentStep.targetRole);
       const targetCount = getRoleTargetCount(currentStep.targetRole, lobbyState);
-      if (holders.length < targetCount) {
-        assignRandomPlayerForRole(currentStep.targetRole, callbacks);
-        return;
-      }
       if (holders.length >= targetCount && targetCount > 0 && currentStep.hasSkill) {
         uiState.callerSubMode = 'target';
         uiState.userExplicitRoleMode = false;
