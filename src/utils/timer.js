@@ -16,6 +16,7 @@ export function startTimer() {
   gameState.timerRunning = true;
   const toggleBtn = (typeof document !== 'undefined') ? document.getElementById('game-timer-toggle') : null;
   if (toggleBtn) toggleBtn.textContent = '⏸';
+  updateTimerDisplay();
 
   if (uiState.timerInterval) {
     clearInterval(uiState.timerInterval);
@@ -45,6 +46,7 @@ export function pauseTimer() {
   }
   const toggleBtn = (typeof document !== 'undefined') ? document.getElementById('game-timer-toggle') : null;
   if (toggleBtn) toggleBtn.textContent = '▶';
+  updateTimerDisplay();
 }
 
 export function resetTimer() {
@@ -58,8 +60,47 @@ export function updateTimerDisplay() {
   const mins = Math.floor(gameState.timerRemaining / 60);
   const secs = gameState.timerRemaining % 60;
   const pad = n => (n < 10 ? '0' + n : n);
-  const el = (typeof document !== 'undefined') ? document.getElementById('game-timer-display') : null;
-  if (el) el.textContent = `${pad(mins)}:${pad(secs)}`;
+  const timeStr = `${pad(mins)}:${pad(secs)}`;
+
+  if (typeof document === 'undefined') return;
+
+  const headerEl = document.getElementById('game-timer-display');
+  if (headerEl) headerEl.textContent = timeStr;
+
+  const bigClock = document.getElementById('discussion-timer-big-display');
+  if (bigClock) bigClock.textContent = timeStr;
+
+  // Discussion Bar Fill Animation & Color Shifts
+  const barFill = document.getElementById('discussion-timer-bar-fill');
+  if (barFill) {
+    const totalSec = Math.max(1, lobbyState.discussionTimer || 90);
+    const pct = Math.max(0, Math.min(100, (gameState.timerRemaining / totalSec) * 100));
+    barFill.style.width = `${pct}%`;
+
+    if (gameState.timerRemaining <= 10 && gameState.timerRemaining > 0) {
+      barFill.className = 'discussion-progress-fill critical';
+    } else if (gameState.timerRemaining <= 25) {
+      barFill.className = 'discussion-progress-fill warning';
+    } else {
+      barFill.className = 'discussion-progress-fill normal';
+    }
+  }
+
+  // 1-Click Discussion Timer Big Button
+  const bigBtn = document.getElementById('discussion-timer-big-btn');
+  if (bigBtn) {
+    const totalSec = lobbyState.discussionTimer || 90;
+    if (gameState.timerRunning) {
+      bigBtn.className = 'discussion-timer-big-btn is-running';
+      bigBtn.innerHTML = `<span class="dt-btn-icon">⏸</span> <span class="dt-btn-text">Pause Discussion</span>`;
+      bigBtn.setAttribute('title', 'Click to pause discussion timer');
+    } else {
+      bigBtn.className = 'discussion-timer-big-btn is-paused';
+      const label = gameState.timerRemaining === totalSec ? 'Start Discussion' : 'Resume Discussion';
+      bigBtn.innerHTML = `<span class="dt-btn-icon">▶</span> <span class="dt-btn-text">${label}</span>`;
+      bigBtn.setAttribute('title', 'One-click to turn on discussion bar');
+    }
+  }
 }
 
 export function triggerTimerAlarm() {

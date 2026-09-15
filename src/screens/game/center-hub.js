@@ -63,6 +63,20 @@ export function handleCenterHubTap(callbacks = {}) {
 
     if (nextStepFn) nextStepFn(callbacks);
   } else if (phase === 'DAY') {
+    if (gameState.daySubPhase === 'discussion') {
+      const setSubPhaseFn = (typeof callbacks.setDaySubPhase === 'function')
+        ? callbacks.setDaySubPhase
+        : (typeof globalThis.setDaySubPhase === 'function' ? globalThis.setDaySubPhase : null);
+      if (setSubPhaseFn) {
+        setSubPhaseFn('lynch', callbacks);
+      } else {
+        gameState.daySubPhase = 'lynch';
+        if (renderTableFn) renderTableFn();
+      }
+      return;
+    }
+
+    // Lynch sub-phase
     const alive = gameState.players.filter(p => p.status === 'alive');
     let maxVotes = 0;
     alive.forEach(p => {
@@ -73,8 +87,17 @@ export function handleCenterHubTap(callbacks = {}) {
     if (leaders.length === 1 && maxVotes > 0) {
       if (typeof callbacks.executeCurrentLynchLeader === 'function') callbacks.executeCurrentLynchLeader();
       else if (typeof globalThis.executeCurrentLynchLeader === 'function') globalThis.executeCurrentLynchLeader();
+    } else if (leaders.length > 1 && maxVotes > 0) {
+      soundManager.playBeep();
+      const names = leaders.map(l => `#${l.seat} ${l.name}`).join(' & ');
+      const alertFn = (typeof callbacks.showCustomAlert === 'function') ? callbacks.showCustomAlert : (typeof globalThis.showCustomAlert === 'function' ? globalThis.showCustomAlert : null);
+      if (alertFn) {
+        alertFn(`⚖️ Vote Tie! ${names} each have ${maxVotes} votes.\nTown must break the tie or skip lynch.`);
+      }
     } else {
-      if (typeof callbacks.startNightPhase === 'function') callbacks.startNightPhase();
+      if (typeof callbacks.skipLynchAndStartNight === 'function') callbacks.skipLynchAndStartNight(callbacks);
+      else if (typeof globalThis.skipLynchAndStartNight === 'function') globalThis.skipLynchAndStartNight(callbacks);
+      else if (typeof callbacks.startNightPhase === 'function') callbacks.startNightPhase();
       else if (typeof globalThis.startNightPhase === 'function') globalThis.startNightPhase();
     }
   }

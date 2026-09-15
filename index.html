@@ -220,30 +220,88 @@
 
       <!-- DAY CONTROLS BAR (Shown when phase is DAY) -->
       <div id="day-controls-bar" class="day-controls-bar" style="display: none;">
-        <div>
-          <div style="font-weight: 700; color: #fbbf24; font-size: 0.95rem;">☀️ Day Discussion & Lynch</div>
-          <div id="day-morning-recap" style="font-size: 0.8rem; color: #fca5a5;">Morning report: Nobody died</div>
-          <div id="day-vote-hint" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">👉 Tap player for +1 vote. Tap vote badge for −1 vote.</div>
-        </div>
-        <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
-          <button id="day-autofill-btn" class="btn btn-outline" style="display: none; font-size: 0.75rem; padding: 0.35rem 0.55rem; color: #c084fc; border-color: rgba(168, 85, 247, 0.4);" onclick="manualTriggerAutoFill()" title="Auto-fill remaining unknown players">
-            ⚡ Auto-Fill
+        <!-- Day Sub-Phase Navigation Tabs -->
+        <div class="day-subphase-nav">
+          <button id="day-tab-discussion" class="day-subphase-tab active" onclick="setDaySubPhase('discussion')">
+            <span class="tab-icon">☀️</span> 1. Day Discussion
           </button>
-          <button id="day-reset-votes-btn" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.55rem;" onclick="resetAllVotes()" title="Reset all player votes to 0">
-            ↺ Reset Votes
-          </button>
-          <button id="day-lynch-btn" class="btn btn-danger" style="font-size: 0.8rem; padding: 0.35rem 0.7rem;" onclick="executeCurrentLynchLeader()" disabled>
-            💀 Lynch
-          </button>
-          <button class="btn btn-primary" style="font-size: 0.8rem; padding: 0.35rem 0.7rem;" onclick="startNightPhase()">
-            🌙 Sleep (Night)
+          <button id="day-tab-lynch" class="day-subphase-tab" onclick="setDaySubPhase('lynch')">
+            <span class="tab-icon">⚖️</span> 2. Town Vote & Lynch
           </button>
         </div>
-      </div>
 
-      <!-- Silenced Day Banner (If Spellcaster silenced someone) -->
-      <div id="day-silenced-banner" class="silenced-banner" style="display: none;">
-        <span>🤐</span> <span id="day-silenced-text">Player is silenced today!</span>
+        <!-- SECTION 1: DAY DISCUSSION -->
+        <div id="day-section-discussion" class="day-subphase-section">
+          <div class="day-section-header">
+            <div>
+              <div id="day-morning-recap" class="day-morning-recap">Morning report: Nobody died</div>
+              <div class="day-section-subtext">Tap cards to inspect or edit player info. Discussion timer counts down below.</div>
+            </div>
+            <div class="day-section-actions">
+              <button id="day-autofill-btn" class="btn btn-outline" style="display: none; font-size: 0.75rem; padding: 0.35rem 0.55rem; color: #c084fc; border-color: rgba(168, 85, 247, 0.4);" onclick="manualTriggerAutoFill()" title="Auto-fill remaining unknown players">
+                ⚡ Auto-Fill
+              </button>
+              <button id="day-proceed-vote-btn" class="btn btn-warning day-proceed-btn" onclick="setDaySubPhase('lynch')">
+                ⚖️ Proceed to Vote & Lynch ▶
+              </button>
+            </div>
+          </div>
+
+          <!-- Silenced Day Banner (If Spellcaster silenced someone) -->
+          <div id="day-silenced-banner" class="silenced-banner" style="display: none;">
+            <span>🤐</span> <span id="day-silenced-text">Player is silenced today!</span>
+          </div>
+
+          <!-- 1-CLICK DISCUSSION BAR WIDGET -->
+          <div class="discussion-bar-widget">
+            <div class="discussion-bar-controls">
+              <button id="discussion-timer-big-btn" class="discussion-timer-big-btn is-paused" onclick="toggleDiscussionTimer()" title="One-click to turn on discussion bar">
+                <span class="dt-btn-icon">▶</span>
+                <span class="dt-btn-text">Start Discussion</span>
+              </button>
+              <div class="discussion-timer-clock-box">
+                <span id="discussion-timer-big-display" class="discussion-timer-big-display">01:30</span>
+              </div>
+              <div class="discussion-quick-actions">
+                <button class="btn btn-outline btn-xs dt-quick-btn" onclick="addTimerSeconds(30)" title="Add 30 seconds">+30s</button>
+                <button class="btn btn-outline btn-xs dt-quick-btn" onclick="resetTimer()" title="Reset timer to default">↺ Reset</button>
+                <button class="btn btn-outline btn-xs dt-quick-btn" onclick="triggerAttentionBell()" title="Ring moderator attention bell">🔔</button>
+              </div>
+            </div>
+            <!-- Dynamic Animated Countdown Bar Track -->
+            <div class="discussion-progress-track">
+              <div id="discussion-timer-bar-fill" class="discussion-progress-fill normal" style="width: 100%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: TOWN VOTE & LYNCH -->
+        <div id="day-section-lynch" class="day-subphase-section" style="display: none;">
+          <div class="day-section-header">
+            <div>
+              <div style="font-weight: 700; color: #f59e0b; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span>⚖️ Town Vote & Lynch</span>
+                <span id="day-vote-tally-pill" class="vote-tally-pill">0 Votes</span>
+              </div>
+              <div id="day-vote-hint" class="day-section-subtext">👉 Tap player card for +1 vote. Tap badge for −1 vote.</div>
+              <div id="day-vote-leader-status" class="day-leader-status">🕊️ No votes cast yet</div>
+            </div>
+            <div class="day-section-actions">
+              <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.6rem;" onclick="setDaySubPhase('discussion')" title="Return to discussion">
+                ◀ Back to Discussion
+              </button>
+              <button id="day-reset-votes-btn" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.55rem;" onclick="resetAllVotes()" title="Reset all player votes to 0">
+                ↺ Reset Votes
+              </button>
+              <button id="day-skip-lynch-btn" class="btn btn-outline btn-peace" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;" onclick="skipLynchAndStartNight()" title="Pass day with peaceful no-lynch">
+                🕊️ No Lynch (Sleep)
+              </button>
+              <button id="day-lynch-btn" class="btn btn-danger" style="font-size: 0.82rem; padding: 0.35rem 0.75rem; font-weight: 700;" onclick="executeCurrentLynchLeader()" disabled>
+                💀 Lynch
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- TOUCH-FRIENDLY RESPONSIVE TABLE TOOLBAR -->

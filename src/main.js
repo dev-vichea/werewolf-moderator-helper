@@ -18,7 +18,7 @@ import { getActiveNightSteps, setCallerSubMode, syncCallerSubMode, renderNightCa
 import { toggleTableExpand, setupTableResizeObserver, renderTouchTable, setupPlayerNodeHold, handleTableNodeTap, handleSeatSwapTap, swapPlayerSeats, rotateTable } from './screens/game/table.js';
 import { handleCenterHubTap } from './screens/game/center-hub.js';
 import { handleWitchPotionBtnTap, handleWitchDirectPlayerTap, toggleWitchHealTouch, armWitchPoisonTouch, previewNightDeaths, getInfectedCursedPlayer } from './screens/game/witch-potions.js';
-import { resolveNightAndStartDay, renderDayControls, addPlayerVote, decrementPlayerVote, resetAllVotes, executeCurrentLynchLeader, startNightPhase } from './screens/game/day-phase.js';
+import { resolveNightAndStartDay, renderDayControls, addPlayerVote, decrementPlayerVote, resetAllVotes, executeCurrentLynchLeader, startNightPhase, setDaySubPhase, toggleDiscussionTimer, skipLynchAndStartNight } from './screens/game/day-phase.js';
 import { smartAutoFillRemainingRoles, checkAutoFillLastUnknownRole, manualTriggerAutoFill, checkDoppelgangerTrigger, assignRandomPlayerForRole, randomizeAllRoles } from './screens/game/autofill.js';
 import { switchLogSubtab, addHistoryLog, renderHistoryTimeline, clearHistoryLog, renderRolesGuide } from './screens/log/log-roles.js';
 
@@ -74,9 +74,11 @@ function wrappedHandleTableNodeTap(id) { return handleTableNodeTap(id, appCallba
 function wrappedAddPlayerVote(id) { return addPlayerVote(id, appCallbacks); }
 function wrappedDecrementPlayerVote(id, event) { return decrementPlayerVote(id, event, appCallbacks); }
 function wrappedResetAllVotes() { return resetAllVotes(appCallbacks); }
+function wrappedResolveNightAndStartDay() { return resolveNightAndStartDay(appCallbacks); }
+function wrappedSetDaySubPhase(subPhase) { return setDaySubPhase(subPhase, appCallbacks); }
+function wrappedSkipLynchAndStartNight() { return skipLynchAndStartNight(appCallbacks); }
 function wrappedExecuteCurrentLynchLeader() { return executeCurrentLynchLeader(appCallbacks); }
 function wrappedStartNightPhase() { return startNightPhase(appCallbacks); }
-function wrappedResolveNightAndStartDay() { return resolveNightAndStartDay(appCallbacks); }
 function wrappedNextWizardStep() { return nextWizardStep(appCallbacks); }
 function wrappedPrevWizardStep() { return prevWizardStep(appCallbacks); }
 function wrappedScheduleAutoAdvance(delay) { return scheduleAutoAdvance(delay, appCallbacks); }
@@ -124,6 +126,9 @@ const appCallbacks = {
   prevWizardStep: wrappedPrevWizardStep,
   getActiveNightSteps,
   resolveNightAndStartDay: wrappedResolveNightAndStartDay,
+  setDaySubPhase: wrappedSetDaySubPhase,
+  toggleDiscussionTimer,
+  skipLynchAndStartNight: wrappedSkipLynchAndStartNight,
   executeCurrentLynchLeader: wrappedExecuteCurrentLynchLeader,
   startNightPhase: wrappedStartNightPhase,
   startNight1FromNight0: wrappedStartNight1FromNight0,
@@ -237,6 +242,9 @@ const exposedExports = {
   previewNightDeaths,
   getInfectedCursedPlayer,
   resolveNightAndStartDay: wrappedResolveNightAndStartDay,
+  setDaySubPhase: wrappedSetDaySubPhase,
+  toggleDiscussionTimer,
+  skipLynchAndStartNight: wrappedSkipLynchAndStartNight,
   renderDayControls,
   addPlayerVote: wrappedAddPlayerVote,
   decrementPlayerVote: wrappedDecrementPlayerVote,
@@ -360,6 +368,9 @@ export {
   previewNightDeaths,
   getInfectedCursedPlayer,
   wrappedResolveNightAndStartDay as resolveNightAndStartDay,
+  wrappedSetDaySubPhase as setDaySubPhase,
+  toggleDiscussionTimer,
+  wrappedSkipLynchAndStartNight as skipLynchAndStartNight,
   renderDayControls,
   wrappedAddPlayerVote as addPlayerVote,
   wrappedDecrementPlayerVote as decrementPlayerVote,

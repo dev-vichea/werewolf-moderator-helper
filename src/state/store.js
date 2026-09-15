@@ -36,6 +36,7 @@ export const gameState = {
   priestShieldTarget: null,
   priestWakesTonight: true,
   history: [],
+  daySubPhase: 'discussion', // 'discussion' | 'lynch'
   timerRemaining: 90,
   timerRunning: false
 };

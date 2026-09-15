@@ -336,21 +336,29 @@ export function renderTouchTable() {
       });
       const leaders = maxVotes > 0 ? alive.filter(p => (p.votes || 0) === maxVotes) : [];
 
-      if (leaders.length === 1 && maxVotes > 0) {
-        hubEmoji = '💀';
-        hubTitle = `#${leaders[0].seat} ${leaders[0].name}`;
-        hubSubtitle = `${maxVotes} Vote${maxVotes > 1 ? 's' : ''} (Lynch)`;
-        hubReady = true;
-      } else if (leaders.length > 1 && maxVotes > 0) {
-        hubEmoji = '⚖️';
-        hubTitle = `Tied (${maxVotes}v)`;
-        hubSubtitle = 'Break Tie or Sleep';
-        hubReady = false;
-      } else {
+      if (gameState.daySubPhase === 'discussion') {
         hubEmoji = '☀️';
-        hubTitle = `Day ${gameState.currentDay}`;
-        hubSubtitle = 'Tap for Night 🌙';
-        hubReady = false;
+        hubTitle = `Day ${gameState.currentDay} • Discussion`;
+        hubSubtitle = 'Begin Voting ⚖️ ▶';
+        hubReady = true;
+      } else {
+        // Lynch Sub-Phase
+        if (leaders.length === 1 && maxVotes > 0) {
+          hubEmoji = '💀';
+          hubTitle = `#${leaders[0].seat} ${leaders[0].name}`;
+          hubSubtitle = `${maxVotes} Vote${maxVotes > 1 ? 's' : ''} (Lynch)`;
+          hubReady = true;
+        } else if (leaders.length > 1 && maxVotes > 0) {
+          hubEmoji = '⚖️';
+          hubTitle = `Tied (${maxVotes}v)`;
+          hubSubtitle = 'Break Tie or Sleep 🕊️';
+          hubReady = false;
+        } else {
+          hubEmoji = '⚖️';
+          hubTitle = `Day ${gameState.currentDay} • Vote`;
+          hubSubtitle = 'Tap to vote or Sleep 🕊️';
+          hubReady = false;
+        }
       }
     }
 
@@ -606,6 +614,17 @@ export function renderTouchTable() {
       else if (isSeerTarget) targetClass = isSeerWolf ? 'targeted-seer-wolf' : 'targeted-seer-town';
     }
 
+    // Highlight leading suspect during Day Lynch sub-phase
+    let isSuspectLeader = false;
+    if (gameState.phase === 'DAY' && gameState.daySubPhase === 'lynch' && p.status === 'alive' && p.votes && p.votes > 0) {
+      const alivePlayers = gameState.players.filter(x => x.status === 'alive');
+      const maxVotes = Math.max(...alivePlayers.map(x => x.votes || 0));
+      if (p.votes === maxVotes && maxVotes > 0) {
+        isSuspectLeader = true;
+        targetClass += ' targeted-suspect';
+      }
+    }
+
     // Highlight and style active role holders (only if alive!)
     if (isCurrentTurn) {
       const roleLower = (p.role || '').toLowerCase();
@@ -620,7 +639,9 @@ export function renderTouchTable() {
     }
 
     let turnBadgeText = '';
-    if (isSwapSelected) {
+    if (isSuspectLeader) {
+      turnBadgeText = `💀 ACCUSED (${p.votes}v)`;
+    } else if (isSwapSelected) {
       turnBadgeText = '🔄 SWAP';
     } else if (isCurrentTurn) {
       switch (p.role) {
@@ -756,8 +777,20 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
   const player = gameState.players.find(p => p.id === playerId);
   if (!player) return;
 
-  // 1. DAY PHASE: Tapping adds a vote!
+  // 1. DAY PHASE:
   if (gameState.phase === 'DAY') {
+    if (gameState.daySubPhase === 'discussion') {
+      // In Day Discussion: tapping player card opens Action Sheet (0 accidental votes!)
+      if (typeof callbacks.openPlayerActionSheet === 'function') {
+        callbacks.openPlayerActionSheet(playerId);
+      } else if (typeof globalThis.openPlayerActionSheet === 'function') {
+        globalThis.openPlayerActionSheet(playerId);
+      } else {
+        openPlayerActionSheet(playerId);
+      }
+      return;
+    }
+    // In Town Vote & Lynch: tapping player card adds a vote!
     if (player.status !== 'alive') return;
     addPlayerVote(player.id, { renderTouchTable, ...callbacks });
     return;

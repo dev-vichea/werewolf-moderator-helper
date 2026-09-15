@@ -6,7 +6,7 @@ import { soundManager } from '../../audio/sound.js';
 import { saveAppState } from '../../state/storage.js';
 import { showCustomAlert, showCustomConfirm } from '../../ui/dialog.js';
 import { showGameToast } from '../../ui/toast.js';
-import { startTimer, pauseTimer } from '../../utils/timer.js';
+import { startTimer, pauseTimer, updateTimerDisplay } from '../../utils/timer.js';
 import { previewNightDeaths, getInfectedCursedPlayer } from './witch-potions.js';
 import { smartAutoFillRemainingRoles, checkDoppelgangerTrigger } from './autofill.js';
 import { triggerHunterRevenge } from '../../ui/modal/hunter-modal.js';
@@ -89,6 +89,7 @@ export function resolveNightAndStartDay(callbacks = {}) {
 
   // Transition to DAY
   gameState.phase = 'DAY';
+  gameState.daySubPhase = 'discussion';
   gameState.wizardStepIndex = 0;
   gameState.players.forEach(p => p.votes = 0);
   gameState.nightActions.wolfTarget = null;
@@ -102,9 +103,9 @@ export function resolveNightAndStartDay(callbacks = {}) {
   // SUNRISE SMART AUTO-FILL
   smartAutoFillRemainingRoles(true, callbacks);
 
-  // SUNRISE AUTO START TIME DISCUSSION!
+  // SUNRISE PREPARE DISCUSSION TIMER (Ready to turn on with 1 click)
   gameState.timerRemaining = lobbyState.discussionTimer || 90;
-  startTimer();
+  pauseTimer();
 
   soundManager.playSunriseBell();
   saveAppState();
@@ -154,7 +155,75 @@ export function resolveNightAndStartDay(callbacks = {}) {
   }
 }
 
+/**
+ * Switch Day Sub-Phase (Discussion vs Lynch)
+ */
+export function setDaySubPhase(subPhase, callbacks = {}) {
+  const targetSubPhase = (subPhase === 'lynch') ? 'lynch' : 'discussion';
+  gameState.daySubPhase = targetSubPhase;
+  soundManager.playBeep();
+  saveAppState();
+
+  renderDayControls();
+
+  const renderTableFn = (typeof callbacks.renderTouchTable === 'function')
+    ? callbacks.renderTouchTable
+    : (typeof globalThis.renderTouchTable === 'function' ? globalThis.renderTouchTable : null);
+  if (renderTableFn) renderTableFn();
+
+  if (targetSubPhase === 'lynch') {
+    showGameToast('⚖️ Town Vote & Lynch Mode: Tap cards to cast votes!');
+  } else {
+    showGameToast('☀️ Discussion Mode: Tap cards to view player info.');
+  }
+}
+
+/**
+ * 1-Click Discussion Timer Toggle
+ */
+export function toggleDiscussionTimer() {
+  if (gameState.timerRunning) {
+    pauseTimer();
+  } else {
+    startTimer();
+  }
+}
+
+/**
+ * Skip Lynch and Proceed to Nightfall (Peaceful Day)
+ */
+export function skipLynchAndStartNight(callbacks = {}) {
+  showCustomConfirm(`Pass Day ${gameState.currentDay} peacefully without executing anyone and begin Night ${gameState.currentNight + 1}?`, {
+    icon: '🕊️',
+    title: 'Peaceful Day (No Lynch)',
+    confirmText: '🕊️ No Lynch (Sleep)',
+    confirmClass: 'btn-primary',
+    onConfirm: () => {
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog(`Day ${gameState.currentDay} Lynch`, 'Town decided on No Lynch. Peaceful day.');
+      }
+      startNightPhase(callbacks);
+    }
+  });
+}
+
 export function renderDayControls() {
+  const currentSubPhase = gameState.daySubPhase || 'discussion';
+  const isDiscussion = (currentSubPhase === 'discussion');
+
+  // Sub-Phase Tabs
+  const tabDiscussion = document.getElementById('day-tab-discussion');
+  const tabLynch = document.getElementById('day-tab-lynch');
+  if (tabDiscussion) tabDiscussion.classList.toggle('active', isDiscussion);
+  if (tabLynch) tabLynch.classList.toggle('active', !isDiscussion);
+
+  // Section Visibility
+  const secDiscussion = document.getElementById('day-section-discussion');
+  const secLynch = document.getElementById('day-section-lynch');
+  if (secDiscussion) secDiscussion.style.display = isDiscussion ? 'flex' : 'none';
+  if (secLynch) secLynch.style.display = isDiscussion ? 'none' : 'flex';
+
+  // Section 1: Discussion controls
   const recapEl = document.getElementById('day-morning-recap');
   if (recapEl) {
     if (gameState.lastNightDeaths && gameState.lastNightDeaths.length > 0) {
@@ -181,7 +250,7 @@ export function renderDayControls() {
     }
   }
 
-  // Highest votes leader / tie detection
+  // Section 2: Voting & Lynch controls
   const alive = gameState.players.filter(p => p.status === 'alive');
   const mayorAlive = alive.some(p => p.isMayor);
   const maxAllowedVotes = alive.length + (mayorAlive ? 1 : 0);
@@ -195,14 +264,16 @@ export function renderDayControls() {
 
   const currentTotalVotes = alive.reduce((sum, p) => sum + (p.votes || 0), 0);
 
-  // Update vote helper text with active count
+  // Update Vote Tally Pill
+  const tallyPill = document.getElementById('day-vote-tally-pill');
+  if (tallyPill) {
+    tallyPill.textContent = `${currentTotalVotes}/${maxAllowedVotes} Votes`;
+  }
+
+  // Update Vote Hint
   const voteHint = document.getElementById('day-vote-hint');
   if (voteHint) {
-    if (currentTotalVotes > 0) {
-      voteHint.innerHTML = `👉 Tap player for +1 vote. Tap badge for −1 vote. <span style="color: #60a5fa; font-weight: 600;">(Votes: ${currentTotalVotes}/${maxAllowedVotes})</span>`;
-    } else {
-      voteHint.innerHTML = `👉 Tap player for +1 vote. Tap badge for −1 vote. <span style="color: var(--text-muted);">(Votes: 0/${maxAllowedVotes})</span>`;
-    }
+    voteHint.innerHTML = `👉 Tap player card for +1 vote. Tap badge for −1 vote. <span style="color: #60a5fa; font-weight: 600;">(Total: ${currentTotalVotes}/${maxAllowedVotes})</span>`;
   }
 
   let maxVotes = 0;
@@ -214,6 +285,18 @@ export function renderDayControls() {
 
   const leaders = maxVotes > 0 ? alive.filter(p => (p.votes || 0) === maxVotes) : [];
   const lynchBtn = document.getElementById('day-lynch-btn');
+  const leaderStatus = document.getElementById('day-vote-leader-status');
+
+  if (leaderStatus) {
+    if (leaders.length === 1) {
+      leaderStatus.innerHTML = `👑 Leading Suspect: <strong style="color: #ef4444;">#${leaders[0].seat} ${leaders[0].name}</strong> with <strong>${maxVotes}</strong> vote${maxVotes > 1 ? 's' : ''}`;
+    } else if (leaders.length > 1) {
+      const names = leaders.map(l => `#${l.seat} ${l.name}`).join(' & ');
+      leaderStatus.innerHTML = `⚖️ Vote Tie: <strong style="color: #fbbf24;">${names}</strong> (${maxVotes} votes each)`;
+    } else {
+      leaderStatus.innerHTML = `🕊️ No votes cast yet. Tap player cards or skip lynch.`;
+    }
+  }
 
   if (lynchBtn) {
     if (leaders.length === 1) {
@@ -237,6 +320,9 @@ export function renderDayControls() {
     dayAutofillBtn.style.display = unknownCount > 0 ? 'inline-flex' : 'none';
     dayAutofillBtn.textContent = `⚡ Auto-Fill (${unknownCount})`;
   }
+
+  // Always keep discussion timer bar in sync
+  updateTimerDisplay();
 }
 
 export function addPlayerVote(playerId, callbacks = {}) {
