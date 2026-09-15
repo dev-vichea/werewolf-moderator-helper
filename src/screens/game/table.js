@@ -595,6 +595,8 @@ export function renderTouchTable() {
     }
 
     const isWolfTarget = (gameState.nightActions.wolfTarget === p.id);
+    const isVampireTarget = (gameState.nightActions.vampireTarget === p.id);
+    const isSorceressTarget = (gameState.phase === 'NIGHT' && currentStep && currentStep.id === 'sorceress' && gameState.nightActions.sorceressTarget === p.id);
     const isShieldTarget = Boolean(p.isShielded || (gameState.nightActions.bodyguardTarget === p.id) || (gameState.nightActions.bodyguardLastTarget === p.id));
     const isPriestShieldTarget = Boolean(gameState.priestShieldTarget === p.id);
     const isPoisonTarget = (gameState.nightActions.witchPoisonTarget === p.id);
@@ -610,6 +612,7 @@ export function renderTouchTable() {
       if (isWolfTarget && isHealTarget) targetClass = 'targeted-heal';
       else if (isHealTarget) targetClass = 'targeted-heal';
       else if (isWolfTarget) targetClass = 'targeted-wolf';
+      else if (isVampireTarget) targetClass = 'targeted-vampire';
       else if (isShieldTarget) targetClass = 'targeted-shield';
       else if (isPriestShieldTarget) targetClass = 'targeted-priest';
       else if (isPoisonTarget) targetClass = 'targeted-poison';
@@ -617,6 +620,7 @@ export function renderTouchTable() {
       else if (isMirrorTarget) targetClass = 'targeted-mirror';
       else if (isCupidTarget) targetClass = 'targeted-cupid';
       else if (isSeerTarget) targetClass = isSeerWolf ? 'targeted-seer-wolf' : 'targeted-seer-town';
+      else if (isSorceressTarget) targetClass = 'targeted-sorceress';
     }
 
     // Highlight leading suspect during Day Lynch sub-phase
@@ -944,7 +948,26 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
     return;
   }
 
-  if (currentStep.id === 'werewolves') {
+  if (currentStep.id === 'vampires') {
+    // Vampires cannot target other Vampires
+    if (player.role === 'Vampire') {
+      soundManager.playBeep();
+      showCustomAlert(`⚠️ #${player.seat} ${player.name} is a Vampire!\n\nVampires cannot target fellow Vampires. Please choose a non-Vampire victim.`);
+      return;
+    }
+    if (gameState.nightActions.vampireTarget === playerId) {
+      gameState.nightActions.vampireTarget = null;
+      cancelAutoAdvance();
+      soundManager.playBeep();
+    } else {
+      gameState.nightActions.vampireTarget = playerId;
+      soundManager.playBeep();
+      scheduleAutoAdvance(600, callbacks);
+    }
+    saveAppState();
+    renderNightCaller();
+    renderTouchTable();
+  } else if (currentStep.id === 'werewolves') {
     if (player.role === 'Werewolf') {
       soundManager.playBeep();
       showCustomAlert(`⚠️ #${player.seat} ${player.name} is a Werewolf!\n\nWerewolves cannot eliminate fellow pack members. Please choose a non-werewolf victim.`);
@@ -1064,6 +1087,48 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
       handleWitchDirectPlayerTap(player, callbacks);
       return;
     }
+  } else if (currentStep.id === 'sorceress') {
+    // Sorceress checks if a player is the Seer (result shown privately to moderator)
+    const isSeer = (player.role === 'Seer');
+    gameState.nightActions.sorceressTarget = playerId;
+    soundManager.playChime();
+
+    if (isSeer) {
+      showCustomAlert(
+        `#${player.seat} ${player.name}\n\nRole: Seer\n\n(Privately signal YES / thumbs up to Sorceress 👍)`,
+        {
+          title: '🟢 Correct: IS the Seer!',
+          icon: '🔮',
+          confirmText: 'Got It (Is Seer) 👍',
+          confirmClass: 'btn-success',
+          cardBorder: '#10b981',
+          cardGlow: 'rgba(16, 185, 129, 0.4)'
+        }
+      );
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog('Sorceress Check', `Sorceress checked #${player.seat} ${player.name} → 🟢 Correct: IS the Seer!`);
+      }
+    } else {
+      showCustomAlert(
+        `#${player.seat} ${player.name}\n\nRole: ${player.role || 'Villager'}\n\n(Privately signal NO / thumbs down to Sorceress 👎)`,
+        {
+          title: '🔴 Wrong: NOT the Seer',
+          icon: '❌',
+          confirmText: 'Got It (Not Seer) 👎',
+          confirmClass: 'btn-danger',
+          cardBorder: '#ef4444',
+          cardGlow: 'rgba(239, 68, 68, 0.4)'
+        }
+      );
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog('Sorceress Check', `Sorceress checked #${player.seat} ${player.name} → 🔴 Wrong: NOT the Seer (${player.role || 'Villager'})`);
+      }
+    }
+
+    saveAppState();
+    renderNightCaller(callbacks);
+    renderTouchTable();
+    scheduleAutoAdvance(500, callbacks);
   } else if (currentStep.id === 'seer') {
     gameState.nightActions.seerTarget = playerId;
     player.checkedBySeer = true;

@@ -403,14 +403,18 @@ export function getInfectedCursedPlayer() {
 export function previewNightDeaths() {
   const deaths = [];
 
+  // Wolf kill — wolves CANNOT kill Vampires (deflected)
   if (gameState.nightActions.wolfTarget) {
     const victim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget);
     if (victim) {
+      const isVampire = (victim.role === 'Vampire');
       const savedByGuard = (gameState.nightActions.bodyguardTarget === victim.id);
       const savedByWitch = gameState.nightActions.witchHealed && (!gameState.nightActions.witchHealTarget || gameState.nightActions.witchHealTarget === victim.id);
       const savedByPriest = (gameState.priestShieldTarget === victim.id);
 
-      if (victim.role === 'Cursed' && !savedByGuard && !savedByWitch && !savedByPriest) {
+      if (isVampire) {
+        // Wolf attack on Vampire is deflected — no death, no curse, no save needed
+      } else if (victim.role === 'Cursed' && !savedByGuard && !savedByWitch && !savedByPriest) {
         // Cursed player survives the wolf attack and will be infected into a Werewolf at dawn!
         // Do NOT add to deaths and do NOT mutate role during preview calls.
       } else if (!savedByGuard && !savedByWitch && !savedByPriest) {
@@ -418,6 +422,10 @@ export function previewNightDeaths() {
       }
     }
   }
+
+  // Vampire kill — handled at END OF DAY (not at Sunrise).
+  // Vampire victim is marked via gameState.vampireMarkedVictim and dies when night begins.
+  // (Witch CANNOT save Vampire victims. Bodyguard / Priest shield can block.)
 
   if (gameState.nightActions.witchPoisonTarget) {
     const poisonVictim = gameState.players.find(p => p.id === gameState.nightActions.witchPoisonTarget);
@@ -427,6 +435,7 @@ export function previewNightDeaths() {
     }
   }
 
+  // Collect all dying IDs so far (before lover propagation)
   const dyingIds = deaths.map(d => d.id);
   gameState.players.forEach(p => {
     if (p.isLover && dyingIds.includes(p.id)) {

@@ -30,11 +30,14 @@ export const gameState = {
     seerTarget: null,
     spellcasterTarget: null,
     doppelgangerPlayer: null,
-    doppelgangerTarget: null
+    doppelgangerTarget: null,
+    vampireTarget: null,
+    sorceressTarget: null
   },
   lastNightDeaths: [],
   priestShieldTarget: null,
   priestWakesTonight: true,
+  vampireMarkedVictim: null, // Player ID marked by Vampires to die at end of current day
   history: [],
   daySubPhase: 'discussion', // 'discussion' | 'lynch'
   dayLynchedPlayer: null, // Name/seat of player lynched during current day
@@ -68,6 +71,8 @@ export function resetNightActions() {
     seerTarget: null,
     spellcasterTarget: null,
     doppelgangerPlayer: null,
-    doppelgangerTarget: null
+    doppelgangerTarget: null,
+    vampireTarget: null,
+    sorceressTarget: null
   };
 }

@@ -16,7 +16,9 @@ export const ROLES_CATALOG = [
   { name: 'Tanner', team: 'Neutral', image: 'images/tanner.jpeg', desc: 'Wins alone if lynched by town.', defaultCount: 0 },
   { name: 'Cursed', team: 'Town', image: 'images/cursed.jpeg', desc: 'Town until bitten by wolves, then turns Werewolf.', defaultCount: 0 },
   { name: 'Prince', team: 'Town', image: 'images/prince.jpeg', desc: 'Cannot be lynched by town vote.', defaultCount: 0 },
-  { name: 'Priest', team: 'Town', image: 'images/priest.jpeg', desc: 'On Night 1, shields 1 player from the next nighttime kill attempt. The shield stays indefinitely until an attack occurs or the target is lynched. The night after it breaks, the Priest wakes up again to shield a new target.', defaultCount: 0 }
+  { name: 'Priest', team: 'Town', image: 'images/priest.jpeg', desc: 'On Night 1, shields 1 player from the next nighttime kill attempt. The shield stays indefinitely until an attack occurs or the target is lynched. The night after it breaks, the Priest wakes up again to shield a new target.', defaultCount: 0 },
+  { name: 'Vampire', team: 'Vampire', image: 'images/vampire.jpeg', desc: 'Independent evil team. Vampires know each other and wake each night to choose one victim. Vampires cannot be killed by Werewolves. Wins by eliminating all Villagers and Werewolves.', defaultCount: 0 },
+  { name: 'Sorceress', team: 'Werewolf', image: 'images/sorceress.jpeg', desc: 'Werewolf-aligned (not a Werewolf). Each night, she wakes to secretly inspect one player to learn if they are the Seer. She appears as Not Werewolf to the Seer. Wins with the Werewolf team.', defaultCount: 0 }
 ];
 
 export function getRoleData(roleName) {

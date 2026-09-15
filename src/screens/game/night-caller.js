@@ -151,6 +151,19 @@ export function getActiveNightSteps() {
     });
   }
 
+  // Vampires wake before Werewolves (independent evil team)
+  if (isRoleInGame('Vampire')) {
+    steps.push({
+      id: 'vampires',
+      targetRole: 'Vampire',
+      name: 'Vampires',
+      icon: '🧛',
+      script: `"Vampires, wake up! Silently choose one player as your victim tonight. Vampires, close your eyes."`,
+      hasSkill: true,
+      actionName: 'Choose Victim'
+    });
+  }
+
   steps.push({
     id: 'werewolves',
     targetRole: 'Werewolf',
@@ -182,6 +195,19 @@ export function getActiveNightSteps() {
       script: `"Seer, open your eyes. Whose identity do you want to inspect?"`,
       hasSkill: true,
       actionName: 'Inspect Player'
+    });
+  }
+
+  // Sorceress wakes after Seer (wolf-aligned spy — searches for Seer)
+  if (isRoleInGame('Sorceress')) {
+    steps.push({
+      id: 'sorceress',
+      targetRole: 'Sorceress',
+      name: 'Sorceress',
+      icon: '🔮',
+      script: `"Sorceress, wake up. Silently point to one player. The moderator will signal whether they are the Seer."`,
+      hasSkill: true,
+      actionName: 'Check for Seer'
     });
   }
 
@@ -383,18 +409,37 @@ export function renderNightCaller(callbacks = {}) {
   if (step.id === 'resolution') {
     const deaths = previewNightDeaths();
     const infectedCursed = getInfectedCursedPlayer();
+
+    // Compute vampire mark (who the vampires chose — dies at end of day, not now)
+    let vampireMarkedDesc = '';
+    if (gameState.nightActions.vampireTarget) {
+      const vampTarget = gameState.players.find(p => p.id === gameState.nightActions.vampireTarget);
+      if (vampTarget && vampTarget.status === 'alive') {
+        const savedByGuard = (gameState.nightActions.bodyguardTarget === vampTarget.id);
+        const savedByPriest = (gameState.priestShieldTarget === vampTarget.id);
+        if (!savedByGuard && !savedByPriest) {
+          vampireMarkedDesc = `🧛 ${vampTarget.name} (Marked — dies at nightfall)`;
+        }
+      }
+    }
+
     let summary = deaths.length > 0 ? deaths.map(d => `${d.name} (${d.reason})`).join(', ') : 'Nobody died!';
     if (infectedCursed && !deaths.some(d => d.id === infectedCursed.id)) {
       summary += ` • 🐺 #${infectedCursed.seat} ${infectedCursed.name} turns Werewolf!`;
     }
+    if (vampireMarkedDesc) {
+      summary += (deaths.length > 0 || infectedCursed) ? ` • ${vampireMarkedDesc}` : vampireMarkedDesc;
+    }
+
+    const hasEvent = deaths.length > 0 || infectedCursed || vampireMarkedDesc;
     if (modePillsEl) {
-      const pillBg = deaths.length > 0 ? 'rgba(239,68,68,0.25)' : (infectedCursed ? 'rgba(168,85,247,0.25)' : 'rgba(16,185,129,0.25)');
-      const pillBorder = deaths.length > 0 ? '#f87171' : (infectedCursed ? '#c084fc' : '#34d399');
-      modePillsEl.innerHTML = `<span class="caller-mode-btn active" style="cursor: default; background: ${pillBg}; border-color: ${pillBorder}; color: white;">☀️ Casualties: <strong>${summary}</strong></span>`;
+      const pillBg = deaths.length > 0 ? 'rgba(239,68,68,0.25)' : (infectedCursed ? 'rgba(168,85,247,0.25)' : (vampireMarkedDesc ? 'rgba(220,38,38,0.18)' : 'rgba(16,185,129,0.25)'));
+      const pillBorder = deaths.length > 0 ? '#f87171' : (infectedCursed ? '#c084fc' : (vampireMarkedDesc ? '#dc2626' : '#34d399'));
+      modePillsEl.innerHTML = `<span class="caller-mode-btn active" style="cursor: default; background: ${pillBg}; border-color: ${pillBorder}; color: white;">☀️ Morning Report: <strong>${summary}</strong></span>`;
     }
     if (instructionText) {
-      const textColor = deaths.length > 0 ? '#f87171' : (infectedCursed ? '#c084fc' : '#4ade80');
-      instructionText.innerHTML = `Casualties: <strong style="color: ${textColor}; margin-left: 0.3rem;">${summary}</strong>`;
+      const textColor = deaths.length > 0 ? '#f87171' : (infectedCursed ? '#c084fc' : (vampireMarkedDesc ? '#fca5a5' : '#4ade80'));
+      instructionText.innerHTML = `Morning Report: <strong style="color: ${textColor}; margin-left: 0.3rem;">${summary}</strong>`;
     }
     if (nextBtn) nextBtn.style.display = 'none';
     if (resolveBtn) {
@@ -533,6 +578,25 @@ export function renderNightCaller(callbacks = {}) {
       targetBorder = 'rgba(239, 68, 68, 0.4)';
     } else {
       currentTargetDesc = victim ? `#${victim.seat} ${victim.name}` : 'Nobody';
+    }
+  } else if (step.id === 'vampires') {
+    if (gameState.nightActions.vampireTarget) {
+      const p = gameState.players.find(x => x.id === gameState.nightActions.vampireTarget);
+      currentTargetDesc = p ? `#${p.seat} ${p.name}` : 'None';
+      targetColor = '#dc2626';
+      targetBg = 'rgba(220, 38, 38, 0.2)';
+      targetBorder = 'rgba(220, 38, 38, 0.45)';
+    }
+  } else if (step.id === 'sorceress') {
+    if (gameState.nightActions.sorceressTarget) {
+      const p = gameState.players.find(x => x.id === gameState.nightActions.sorceressTarget);
+      if (p) {
+        const isSeer = (p.role === 'Seer');
+        currentTargetDesc = isSeer ? `✅ #${p.seat} ${p.name} (IS the Seer!)` : `❌ #${p.seat} ${p.name} (Not Seer)`;
+        targetColor = isSeer ? '#34d399' : '#f87171';
+        targetBg = isSeer ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+        targetBorder = isSeer ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+      }
     }
   } else if (step.id === 'doppelganger') {
     if (gameState.nightActions.doppelgangerTarget) {
@@ -691,6 +755,36 @@ export function renderNightCaller(callbacks = {}) {
           poisonBtn.textContent = uiState.witchSelectionMode === 'poison' ? '👉 Tap target on table' : '🧪 Poison Player';
           poisonBtn.disabled = false;
         }
+      }
+    } else if (step.id === 'vampires') {
+      if (instructionText) instructionText.innerHTML = `<span>🧛</span> <strong>Ask Vampires: "Who do you want to kill tonight?" (Tap victim on table — cannot target another Vampire)</strong>`;
+      if (currentTargetDesc !== 'None' && targetBadge && targetName) {
+        targetBadge.style.display = 'inline-flex';
+        targetBadge.style.backgroundColor = targetBg;
+        targetBadge.style.borderColor = targetBorder;
+        targetBadge.style.color = targetColor;
+        targetName.textContent = currentTargetDesc;
+      }
+    } else if (step.id === 'sorceress') {
+      const sorceressTarget = gameState.nightActions.sorceressTarget
+        ? gameState.players.find(x => x.id === gameState.nightActions.sorceressTarget)
+        : null;
+      const isSeer = sorceressTarget && (sorceressTarget.role === 'Seer');
+      if (instructionText) {
+        if (sorceressTarget) {
+          instructionText.innerHTML = isSeer
+            ? `✅ <strong>#${sorceressTarget.seat} ${sorceressTarget.name} IS the Seer!</strong> <span style="color: #94a3b8; font-size: 0.85em;">(Nod yes privately to Sorceress)</span>`
+            : `❌ <strong>#${sorceressTarget.seat} ${sorceressTarget.name} is NOT the Seer.</strong> <span style="color: #94a3b8; font-size: 0.85em;">(Shake head no to Sorceress)</span>`;
+        } else {
+          instructionText.innerHTML = `<span>🔮</span> <strong>Ask Sorceress: "Point to the player you want to check." (Tap player on table)</strong>`;
+        }
+      }
+      if (currentTargetDesc !== 'None' && targetBadge && targetName) {
+        targetBadge.style.display = 'inline-flex';
+        targetBadge.style.backgroundColor = targetBg;
+        targetBadge.style.borderColor = targetBorder;
+        targetBadge.style.color = targetColor;
+        targetName.textContent = currentTargetDesc;
       }
     } else if (step.id === 'doppelganger') {
       if (instructionText) instructionText.innerHTML = `<span>🎭</span> <strong>Doppelgänger: Tap a living player on the table to secretly copy if they die:</strong>`;

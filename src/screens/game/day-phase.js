@@ -87,6 +87,39 @@ export function resolveNightAndStartDay(callbacks = {}) {
     );
   }
 
+  // Handle Vampire Mark: victim stays alive today, dies when night begins
+  // (Bodyguard and Priest shield CAN block; Witch CANNOT save)
+  gameState.vampireMarkedVictim = null;
+  if (gameState.nightActions.vampireTarget) {
+    const vampTarget = gameState.players.find(p => p.id === gameState.nightActions.vampireTarget);
+    if (vampTarget && vampTarget.status === 'alive') {
+      const savedByGuard = (gameState.nightActions.bodyguardTarget === vampTarget.id);
+      const savedByPriest = (gameState.priestShieldTarget === vampTarget.id);
+      if (savedByPriest) {
+        // Priest shield absorbs the vampire mark
+        gameState.priestShieldTarget = null;
+        if (typeof callbacks.addHistoryLog === 'function') {
+          callbacks.addHistoryLog('Holy Shield vs Vampires', `Priest's shield protected #${vampTarget.seat} ${vampTarget.name} from the Vampire mark!`);
+        }
+        showCustomAlert(
+          `✝️ <strong>Holy Shield Absorbed Vampire Mark!</strong><br><br>The Priest's shield blocked the Vampires' choice on <strong>#${vampTarget.seat} ${vampTarget.name}</strong> and was consumed!<br><br><span style="color: #94a3b8; font-size: 0.88em;">The Priest will awaken next night for a new shield.</span>`,
+          { title: 'Shield Blocked Vampires!', icon: '✝️', confirmText: 'Understood', confirmClass: 'btn-primary' }
+        );
+      } else if (savedByGuard) {
+        if (typeof callbacks.addHistoryLog === 'function') {
+          callbacks.addHistoryLog('Bodyguard Blocked Vampires', `Bodyguard shielded #${vampTarget.seat} ${vampTarget.name} from the Vampire mark!`);
+        }
+        showGameToast(`🛡️ Bodyguard blocked the Vampire attack on #${vampTarget.seat} ${vampTarget.name}!`);
+      } else if (!deaths.some(d => d.id === vampTarget.id)) {
+        // Mark the victim — they die at end of day when night begins
+        gameState.vampireMarkedVictim = vampTarget.id;
+        if (typeof callbacks.addHistoryLog === 'function') {
+          callbacks.addHistoryLog('Vampire Mark', `#${vampTarget.seat} ${vampTarget.name} was marked by Vampires and will die at the end of today.`);
+        }
+      }
+    }
+  }
+
   // Transition to DAY
   gameState.phase = 'DAY';
   gameState.daySubPhase = 'discussion';
@@ -99,6 +132,8 @@ export function resolveNightAndStartDay(callbacks = {}) {
   gameState.nightActions.witchPoisonTarget = null;
   gameState.nightActions.witchArmPoison = false;
   gameState.nightActions.bodyguardTarget = null;
+  gameState.nightActions.vampireTarget = null;
+  gameState.nightActions.sorceressTarget = null;
   uiState.witchSelectionMode = null;
 
   // SUNRISE PREPARE DISCUSSION TIMER (Ready to turn on with 1 click)
@@ -212,6 +247,23 @@ export function renderDayControls() {
       recapEl.innerHTML = `Deaths: <strong>${gameState.lastNightDeaths.map(d=>d.name).join(', ')}</strong>`;
     } else {
       recapEl.innerHTML = `Morning report: <strong>Nobody died!</strong>`;
+    }
+  }
+
+  // Vampire mark banner in Discussion
+  const vampireBanner = document.getElementById('day-vampire-mark-banner');
+  const vampireMarkText = document.getElementById('day-vampire-mark-text');
+  if (vampireBanner && vampireMarkText) {
+    if (gameState.vampireMarkedVictim) {
+      const markedP = gameState.players.find(p => p.id === gameState.vampireMarkedVictim);
+      if (markedP && markedP.status === 'alive') {
+        vampireBanner.style.display = 'flex';
+        vampireMarkText.textContent = `🧛 #${markedP.seat} ${markedP.name} was marked by Vampires and will die when night falls!`;
+      } else {
+        vampireBanner.style.display = 'none';
+      }
+    } else {
+      vampireBanner.style.display = 'none';
     }
   }
 
@@ -579,6 +631,46 @@ export function startNightPhase(callbacks = {}) {
 
 export function executeNightfallTransition(callbacks = {}) {
   if (typeof callbacks.cancelAutoAdvance === 'function') callbacks.cancelAutoAdvance();
+
+  // Kill the Vampire's marked victim at end of day (per official rules)
+  const vampireVictimDeath = () => {
+    if (!gameState.vampireMarkedVictim) return;
+    const vampVictim = gameState.players.find(p => p.id === gameState.vampireMarkedVictim);
+    gameState.vampireMarkedVictim = null;
+    if (!vampVictim || vampVictim.status !== 'alive') return;
+
+    vampVictim.status = 'dead';
+    if (typeof callbacks.addHistoryLog === 'function') {
+      callbacks.addHistoryLog(`Day ${gameState.currentDay} Vampire Kill`, `#${vampVictim.seat} ${vampVictim.name} died from the Vampire's mark as night fell.`);
+    }
+    checkDoppelgangerTrigger(vampVictim.id, callbacks);
+
+    const checkWinFn = (typeof callbacks.checkWinCondition === 'function')
+      ? callbacks.checkWinCondition
+      : (typeof globalThis.checkWinCondition === 'function' ? globalThis.checkWinCondition : null);
+
+    if (vampVictim.role === 'Tanner') {
+      // Tanner only wins if LYNCHED by town — night kill doesn't count
+    }
+    if (vampVictim.role === 'Hunter') {
+      triggerHunterRevenge(vampVictim);
+    }
+    if (vampVictim.isLover) {
+      const partner = gameState.players.find(x => x.isLover && x.id !== vampVictim.id && x.status === 'alive');
+      if (partner) {
+        partner.status = 'dead';
+        if (typeof callbacks.addHistoryLog === 'function') {
+          callbacks.addHistoryLog('Heartbreak', `${partner.name} died of grief after ${vampVictim.name} died from Vampire mark.`);
+        }
+        checkDoppelgangerTrigger(partner.id, callbacks);
+        if (partner.role === 'Hunter') triggerHunterRevenge(partner);
+      }
+    }
+    if (checkWinFn) checkWinFn(callbacks);
+  };
+
+  vampireVictimDeath();
+
   gameState.phase = 'NIGHT';
   gameState.currentNight++;
   gameState.currentDay++;

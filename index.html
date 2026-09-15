@@ -149,9 +149,10 @@
       <div class="game-top-bar">
         <div class="game-phase-indicator">
           <span id="game-phase-pill" class="game-phase-pill night">🌙 Night 1</span>
-          <div style="font-size: 0.8rem; color: var(--text-secondary); display: flex; gap: 0.4rem;">
+          <div style="font-size: 0.8rem; color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center;">
             <span>🐺 <strong id="game-stat-wolves" style="color: #f87171;">0</strong></span>
             <span>🧑 <strong id="game-stat-town" style="color: #38bdf8;">0</strong></span>
+            <span class="game-stat-badge" style="display: none;">🧛 <strong id="game-stat-vampires" style="color: #dc2626;">0</strong></span>
           </div>
         </div>
 
@@ -245,6 +246,11 @@
                 ⚖️ Proceed to Vote & Lynch ▶
               </button>
             </div>
+          </div>
+
+          <!-- Vampire Mark Banner (victim marked last night, dies at nightfall) -->
+          <div id="day-vampire-mark-banner" style="display: none; align-items: center; gap: 0.5rem; background: rgba(220, 38, 38, 0.18); border: 1px solid rgba(220, 38, 38, 0.6); border-radius: 8px; padding: 0.5rem 0.85rem; font-size: 0.82rem; color: #fca5a5; font-weight: 700; margin-bottom: 0.4rem;">
+            <span id="day-vampire-mark-text">🧛 Player marked by Vampires — dies when night falls!</span>
           </div>
 
           <!-- Silenced Day Banner (If Spellcaster silenced someone) -->

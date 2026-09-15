@@ -23,12 +23,23 @@ export function renderGameScreen() {
 export function renderGameTopBar() {
   const alive = gameState.players.filter(p => p.status === 'alive');
   const wolves = alive.filter(p => getRoleData(p.role).team === 'Werewolf').length;
-  const town = alive.length - wolves;
+  const vampires = alive.filter(p => getRoleData(p.role).team === 'Vampire').length;
+  const town = alive.length - wolves - vampires;
 
   const statWolves = document.getElementById('game-stat-wolves');
   const statTown = document.getElementById('game-stat-town');
+  const statVampires = document.getElementById('game-stat-vampires');
   if (statWolves) statWolves.textContent = wolves;
   if (statTown) statTown.textContent = town;
+  if (statVampires) {
+    const vampBadge = statVampires.closest ? statVampires.closest('.game-stat-badge') : statVampires.parentElement;
+    if (vampires > 0) {
+      statVampires.textContent = vampires;
+      if (vampBadge) vampBadge.style.display = '';
+    } else {
+      if (vampBadge) vampBadge.style.display = 'none';
+    }
+  }
 
   const phasePill = document.getElementById('game-phase-pill');
   const callerBox = document.getElementById('night-caller-box');
@@ -106,7 +117,9 @@ export function startGameDirectNight1(callbacks = {}) {
     seerTarget: null,
     spellcasterTarget: null,
     doppelgangerPlayer: null,
-    doppelgangerTarget: null
+    doppelgangerTarget: null,
+    vampireTarget: null,
+    sorceressTarget: null
   };
   gameState.lastNightDeaths = [];
   gameState.priestShieldTarget = null;
@@ -188,7 +201,9 @@ export function dealAndStartGame(callbacks = {}) {
     seerTarget: null,
     spellcasterTarget: null,
     doppelgangerPlayer: null,
-    doppelgangerTarget: null
+    doppelgangerTarget: null,
+    vampireTarget: null,
+    sorceressTarget: null
   };
   gameState.lastNightDeaths = [];
   gameState.priestShieldTarget = null;
@@ -247,11 +262,14 @@ export function confirmRestartGame(callbacks = {}) {
         seerTarget: null,
         spellcasterTarget: null,
         doppelgangerPlayer: null,
-        doppelgangerTarget: null
+        doppelgangerTarget: null,
+        vampireTarget: null,
+        sorceressTarget: null
       };
       gameState.lastNightDeaths = [];
       gameState.priestShieldTarget = null;
       gameState.priestWakesTonight = true;
+      gameState.vampireMarkedVictim = null;
       pauseTimer();
       soundManager.playGong();
       if (typeof callbacks.addHistoryLog === 'function') {
@@ -269,12 +287,15 @@ export function checkWinCondition(callbacks = {}) {
   if (alive.length === 0) return;
 
   const wolves = alive.filter(p => getRoleData(p.role).team === 'Werewolf');
-  const town = alive.filter(p => getRoleData(p.role).team !== 'Werewolf');
+  const vampires = alive.filter(p => getRoleData(p.role).team === 'Vampire');
+  // "Others" = Town + Neutral + Sorceress (non-wolf, non-vampire)
+  const others = alive.filter(p => getRoleData(p.role).team !== 'Werewolf' && getRoleData(p.role).team !== 'Vampire');
 
   const showWin = (typeof callbacks.showWinOverlay === 'function')
     ? callbacks.showWinOverlay
     : (typeof globalThis.showWinOverlay === 'function' ? globalThis.showWinOverlay : showWinOverlay);
 
+  // Lovers win check (before team checks)
   const loversAlive = alive.filter(p => p.isLover);
   if (loversAlive.length === 2 && alive.length === 2) {
     showWin('💘 Lovers Win!', `${loversAlive[0].name} and ${loversAlive[1].name} are the only survivors!`, callbacks);
@@ -288,14 +309,24 @@ export function checkWinCondition(callbacks = {}) {
   const assignedWolvesCount = gameState.players.filter(p => p.role === 'Werewolf' || p.role === 'Lycan').length;
   const unassignedWolvesRemain = totalDeckWolves > 0 && assignedWolvesCount < totalDeckWolves;
 
-  if (wolves.length === 0) {
+  // Village wins: all wolves AND all vampires eliminated
+  if (wolves.length === 0 && vampires.length === 0) {
     if (unassignedWolvesRemain && hasUnknowns) return;
-    showWin('🎉 Village Wins!', 'All werewolves have been eliminated! The village is saved!', callbacks);
+    showWin('🎉 Village Wins!', 'All Werewolves and Vampires have been eliminated! The village is saved!', callbacks);
     return;
   }
 
-  if (wolves.length >= town.length) {
-    showWin('🐺 Werewolves Win!', `Werewolves (${wolves.length}) equal or outnumber Townsfolk (${town.length})!`, callbacks);
+  // Werewolf wins: wolves dominate everyone else (others + vampires)
+  const nonWolves = alive.length - wolves.length;
+  if (wolves.length >= nonWolves && wolves.length > 0) {
+    showWin('🐺 Werewolves Win!', `Werewolves (${wolves.length}) equal or outnumber all others (${nonWolves})!`, callbacks);
+    return;
+  }
+
+  // Vampire wins: no wolves alive, vampires equal or outnumber remaining town
+  if (vampires.length > 0 && wolves.length === 0 && vampires.length >= others.length) {
+    if (unassignedWolvesRemain && hasUnknowns) return;
+    showWin('🧛 Vampires Win!', `Vampires (${vampires.length}) have overwhelmed the village and eliminated all Werewolves!`, callbacks);
     return;
   }
 }
