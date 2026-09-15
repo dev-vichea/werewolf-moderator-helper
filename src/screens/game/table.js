@@ -245,8 +245,11 @@ export function renderTouchTable() {
             const victim = gameState.players.find(p => p.id === gameState.nightActions.wolfTarget);
             const isHealed = gameState.nightActions.witchHealed;
             const poisonVictim = gameState.players.find(p => p.id === gameState.nightActions.witchPoisonTarget);
+            const hasAnyPotions = Boolean((gameState.potions.witchHealAvailable || isHealed) || (gameState.potions.witchPoisonAvailable || poisonVictim));
 
-            if (isHealed && poisonVictim) {
+            if (!hasAnyPotions) {
+              hubSubtitle = 'No Potions Left ▶';
+            } else if (isHealed && poisonVictim) {
               hubSubtitle = `💚 Saved & ☠️ #${poisonVictim.seat}`;
             } else if (isHealed) {
               hubSubtitle = `💚 #${victim ? victim.seat : ''} Saved ▶`;
@@ -371,8 +374,12 @@ export function renderTouchTable() {
     const defaultHubContent = document.getElementById('table-hub-default-content');
     const witchHubContent = document.getElementById('table-hub-witch-content');
     const isWitchStep = (gameState.phase === 'NIGHT' && activeStep && activeStep.id === 'witch' && uiState.callerSubMode === 'target' && !isStepRoleDead(activeStep));
+    const hasAnyPotions = Boolean(
+      (gameState.potions.witchHealAvailable || gameState.nightActions.witchHealed) ||
+      (gameState.potions.witchPoisonAvailable || gameState.nightActions.witchPoisonTarget)
+    );
 
-    if (isWitchStep && witchHubContent) {
+    if (isWitchStep && witchHubContent && hasAnyPotions) {
       hubEl.classList.add('witch-turn-hub');
       if (defaultHubContent) defaultHubContent.style.display = 'none';
       witchHubContent.style.display = 'flex';
@@ -959,6 +966,13 @@ export function handleTableNodeTap(playerId, callbacks = {}) {
     renderNightCaller();
     renderTouchTable();
   } else if (currentStep.id === 'witch') {
+    const hasAnyPotions = Boolean((gameState.potions.witchHealAvailable || gameState.nightActions.witchHealed) || (gameState.potions.witchPoisonAvailable || gameState.nightActions.witchPoisonTarget));
+    if (!hasAnyPotions) {
+      soundManager.playBeep();
+      showGameToast('🧪 Witch has no potions remaining.');
+      return;
+    }
+
     if (uiState.witchSelectionMode === 'heal') {
       if (playerId !== gameState.nightActions.wolfTarget) {
         soundManager.playBeep();

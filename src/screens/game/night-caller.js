@@ -506,8 +506,17 @@ export function renderNightCaller(callbacks = {}) {
     const victim = gameState.players.find(x => x.id === gameState.nightActions.wolfTarget);
     const healed = gameState.nightActions.witchHealed;
     const poisonTarget = gameState.players.find(x => x.id === gameState.nightActions.witchPoisonTarget);
+    const hasAnyPotions = Boolean(
+      (gameState.potions.witchHealAvailable || healed) ||
+      (gameState.potions.witchPoisonAvailable || poisonTarget)
+    );
 
-    if (healed && poisonTarget) {
+    if (!hasAnyPotions) {
+      currentTargetDesc = 'No Potions Left';
+      targetColor = '#94a3b8';
+      targetBg = 'rgba(148, 163, 184, 0.15)';
+      targetBorder = 'rgba(148, 163, 184, 0.3)';
+    } else if (healed && poisonTarget) {
       currentTargetDesc = `💚 #${victim ? victim.seat : '?'} & ☠️ #${poisonTarget.seat}`;
       targetColor = '#34d399';
       targetBg = 'rgba(16, 185, 129, 0.2)';
@@ -617,7 +626,6 @@ export function renderNightCaller(callbacks = {}) {
         targetName.textContent = currentTargetDesc;
       }
     } else if (step.id === 'witch') {
-      if (witchControls) witchControls.style.display = 'flex';
       const victim = gameState.players.find(x => x.id === gameState.nightActions.wolfTarget);
       const victimName = victim ? `#${victim.seat} ${victim.name}` : 'Nobody';
 
@@ -625,9 +633,14 @@ export function renderNightCaller(callbacks = {}) {
       const poisonAvail = gameState.potions.witchPoisonAvailable;
       const alreadyHealed = Boolean(gameState.nightActions.witchHealed);
       const alreadyPoisoned = Boolean(gameState.nightActions.witchPoisonTarget);
+      const hasAnyPotions = Boolean((healAvail || alreadyHealed) || (poisonAvail || alreadyPoisoned));
+
+      if (witchControls) witchControls.style.display = hasAnyPotions ? 'flex' : 'none';
 
       if (instructionText) {
-        if (alreadyHealed && alreadyPoisoned) {
+        if (!hasAnyPotions) {
+          instructionText.innerHTML = `<span>🧪</span> <strong>Witch has no potions remaining. (Tap Center Hub or Next ▶ to continue)</strong>`;
+        } else if (alreadyHealed && alreadyPoisoned) {
           const poisonedP = gameState.players.find(p => p.id === gameState.nightActions.witchPoisonTarget);
           instructionText.innerHTML = `💚 <strong>Saved: ${victimName}</strong> &nbsp;|&nbsp; ☠️ <strong>Poisoned: #${poisonedP ? poisonedP.seat + ' ' + poisonedP.name : 'Player'}</strong>`;
         } else if (alreadyHealed) {
