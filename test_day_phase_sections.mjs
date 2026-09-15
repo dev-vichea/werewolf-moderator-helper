@@ -1,12 +1,13 @@
 import assert from 'assert';
 import { gameState, lobbyState, uiState } from './src/state/store.js';
-import { resolveNightAndStartDay, setDaySubPhase, toggleDiscussionTimer, addPlayerVote, resetAllVotes, executeCurrentLynchLeader } from './src/screens/game/day-phase.js';
+import { resolveNightAndStartDay, setDaySubPhase, toggleDiscussionTimer, addPlayerVote, resetAllVotes, executeCurrentLynchLeader, startNightPhase } from './src/screens/game/day-phase.js';
 import { handleTableNodeTap } from './src/screens/game/table.js';
 import { handleCenterHubTap } from './src/screens/game/center-hub.js';
 import { updateTimerDisplay } from './src/utils/timer.js';
 import { handleCustomDialogResolve } from './src/ui/dialog.js';
 
 globalThis.executeCurrentLynchLeader = executeCurrentLynchLeader;
+globalThis.startNightPhase = startNightPhase;
 
 console.log('--- STARTING DAY PHASE SECTIONS & VOTE SYSTEM INTEGRATION TESTS ---');
 
@@ -135,6 +136,7 @@ console.log('✓ Test 8 passed!');
 
 // TEST 9: Center Hub tie detection
 console.log('Test 9: Center Hub tie detection');
+gameState.dayLynchedPlayer = null; // Reset for tie test
 gameState.players[0].votes = 2; // Alice
 gameState.players[2].votes = 2; // Charlie
 
@@ -148,5 +150,19 @@ assert.ok(alertedTieMsg && alertedTieMsg.includes('Tie'), 'Should alert about vo
 assert.strictEqual(gameState.players[0].status, 'alive', 'Alice should remain alive on tie');
 assert.strictEqual(gameState.players[2].status, 'alive', 'Charlie should remain alive on tie');
 console.log('✓ Test 9 passed!');
+
+// TEST 10: Post-lynch Sleep Night transition
+console.log('Test 10: Post-lynch Sleep Night transition');
+gameState.dayLynchedPlayer = '#2 Bob';
+gameState.currentNight = 1;
+gameState.currentDay = 1;
+
+handleCenterHubTap(); // Taps center hub to sleep
+handleCustomDialogResolve(true); // Confirms Night 2
+
+assert.strictEqual(gameState.phase, 'NIGHT', 'Phase should be NIGHT');
+assert.strictEqual(gameState.currentNight, 2, 'Should advance to Night 2');
+assert.strictEqual(gameState.dayLynchedPlayer, null, 'dayLynchedPlayer should reset on Night 2');
+console.log('✓ Test 10 passed!');
 
 console.log('=== ALL TESTS PASSED SUCCESSFULLY! ===');

@@ -90,6 +90,7 @@ export function resolveNightAndStartDay(callbacks = {}) {
   // Transition to DAY
   gameState.phase = 'DAY';
   gameState.daySubPhase = 'discussion';
+  gameState.dayLynchedPlayer = null;
   gameState.wizardStepIndex = 0;
   gameState.players.forEach(p => p.votes = 0);
   gameState.nightActions.wolfTarget = null;
@@ -99,9 +100,6 @@ export function resolveNightAndStartDay(callbacks = {}) {
   gameState.nightActions.witchArmPoison = false;
   gameState.nightActions.bodyguardTarget = null;
   uiState.witchSelectionMode = null;
-
-  // SUNRISE SMART AUTO-FILL
-  smartAutoFillRemainingRoles(true, callbacks);
 
   // SUNRISE PREPARE DISCUSSION TIMER (Ready to turn on with 1 click)
   gameState.timerRemaining = lobbyState.discussionTimer || 90;
@@ -189,23 +187,7 @@ export function toggleDiscussionTimer() {
   }
 }
 
-/**
- * Skip Lynch and Proceed to Nightfall (Peaceful Day)
- */
-export function skipLynchAndStartNight(callbacks = {}) {
-  showCustomConfirm(`Pass Day ${gameState.currentDay} peacefully without executing anyone and begin Night ${gameState.currentNight + 1}?`, {
-    icon: '🕊️',
-    title: 'Peaceful Day (No Lynch)',
-    confirmText: '🕊️ No Lynch (Sleep)',
-    confirmClass: 'btn-primary',
-    onConfirm: () => {
-      if (typeof callbacks.addHistoryLog === 'function') {
-        callbacks.addHistoryLog(`Day ${gameState.currentDay} Lynch`, 'Town decided on No Lynch. Peaceful day.');
-      }
-      startNightPhase(callbacks);
-    }
-  });
-}
+
 
 export function renderDayControls() {
   const currentSubPhase = gameState.daySubPhase || 'discussion';
@@ -286,30 +268,58 @@ export function renderDayControls() {
   const leaders = maxVotes > 0 ? alive.filter(p => (p.votes || 0) === maxVotes) : [];
   const lynchBtn = document.getElementById('day-lynch-btn');
   const leaderStatus = document.getElementById('day-vote-leader-status');
+  const sleepNightBtn = document.getElementById('day-sleep-night-btn');
+  const skipLynchBtn = document.getElementById('day-skip-lynch-btn');
 
-  if (leaderStatus) {
-    if (leaders.length === 1) {
-      leaderStatus.innerHTML = `👑 Leading Suspect: <strong style="color: #ef4444;">#${leaders[0].seat} ${leaders[0].name}</strong> with <strong>${maxVotes}</strong> vote${maxVotes > 1 ? 's' : ''}`;
-    } else if (leaders.length > 1) {
-      const names = leaders.map(l => `#${l.seat} ${l.name}`).join(' & ');
-      leaderStatus.innerHTML = `⚖️ Vote Tie: <strong style="color: #fbbf24;">${names}</strong> (${maxVotes} votes each)`;
-    } else {
-      leaderStatus.innerHTML = `🕊️ No votes cast yet. Tap player cards or skip lynch.`;
+  if (gameState.dayLynchedPlayer) {
+    if (leaderStatus) {
+      leaderStatus.innerHTML = `💀 <strong style="color: #ef4444;">${gameState.dayLynchedPlayer}</strong> was executed today. Ready to sleep.`;
     }
-  }
+    if (sleepNightBtn) {
+      sleepNightBtn.style.display = 'inline-flex';
+      sleepNightBtn.textContent = `🌙 Sleep (Night ${gameState.currentNight + 1})`;
+    }
+    if (skipLynchBtn) {
+      skipLynchBtn.style.display = 'none';
+    }
+    if (lynchBtn) {
+      lynchBtn.style.display = 'none';
+    }
+  } else {
+    if (sleepNightBtn) {
+      sleepNightBtn.style.display = 'none';
+    }
+    if (skipLynchBtn) {
+      skipLynchBtn.style.display = 'inline-flex';
+    }
+    if (lynchBtn) {
+      lynchBtn.style.display = 'inline-flex';
+    }
 
-  if (lynchBtn) {
-    if (leaders.length === 1) {
-      const leader = leaders[0];
-      lynchBtn.disabled = false;
-      lynchBtn.textContent = `💀 Lynch #${leader.seat} ${leader.name} (${maxVotes}v)`;
-    } else if (leaders.length > 1) {
-      lynchBtn.disabled = true;
-      const names = leaders.map(l => `#${l.seat} ${l.name}`).join(' & ');
-      lynchBtn.textContent = `⚖️ Tie: ${names} (${maxVotes}v)`;
-    } else {
-      lynchBtn.disabled = true;
-      lynchBtn.textContent = `💀 Lynch`;
+    if (leaderStatus) {
+      if (leaders.length === 1) {
+        leaderStatus.innerHTML = `👑 Leading Suspect: <strong style="color: #ef4444;">#${leaders[0].seat} ${leaders[0].name}</strong> with <strong>${maxVotes}</strong> vote${maxVotes > 1 ? 's' : ''}`;
+      } else if (leaders.length > 1) {
+        const names = leaders.map(l => `#${l.seat} ${l.name}`).join(' & ');
+        leaderStatus.innerHTML = `⚖️ Vote Tie: <strong style="color: #fbbf24;">${names}</strong> (${maxVotes} votes each)`;
+      } else {
+        leaderStatus.innerHTML = `🕊️ No votes cast yet. Tap player cards or skip lynch.`;
+      }
+    }
+
+    if (lynchBtn) {
+      if (leaders.length === 1) {
+        const leader = leaders[0];
+        lynchBtn.disabled = false;
+        lynchBtn.textContent = `💀 Lynch #${leader.seat} ${leader.name} (${maxVotes}v)`;
+      } else if (leaders.length > 1) {
+        lynchBtn.disabled = true;
+        const names = leaders.map(l => `#${l.seat} ${l.name}`).join(' & ');
+        lynchBtn.textContent = `⚖️ Tie: ${names} (${maxVotes}v)`;
+      } else {
+        lynchBtn.disabled = true;
+        lynchBtn.textContent = `💀 Lynch`;
+      }
     }
   }
 
@@ -455,7 +465,7 @@ export function executeCurrentLynchLeader(callbacks = {}) {
     const checkWinFn = (typeof callbacks.checkWinCondition === 'function')
       ? callbacks.checkWinCondition
       : (typeof globalThis.checkWinCondition === 'function' ? globalThis.checkWinCondition : null);
-    if (checkWinFn) checkWinFn();
+    if (checkWinFn) checkWinFn(callbacks);
   };
 
   if (leader.role === 'Prince') {
@@ -475,6 +485,7 @@ export function executeCurrentLynchLeader(callbacks = {}) {
     confirmClass: 'btn-danger',
     onConfirm: () => {
       leader.status = 'dead';
+      gameState.dayLynchedPlayer = `#${leader.seat} ${leader.name}`;
       if (leader.id === gameState.priestShieldTarget) {
         gameState.priestShieldTarget = null;
         if (typeof callbacks.addHistoryLog === 'function') {
@@ -533,37 +544,91 @@ export function executeCurrentLynchLeader(callbacks = {}) {
   });
 }
 
+export function skipLynchAndStartNight(callbacks = {}) {
+  showCustomConfirm(`Pass Day ${gameState.currentDay} peacefully without executing anyone and begin Night ${gameState.currentNight + 1}?`, {
+    icon: '🕊️',
+    title: 'Peaceful Day (No Lynch)',
+    confirmText: '🕊️ No Lynch (Sleep)',
+    confirmClass: 'btn-primary',
+    onConfirm: () => {
+      if (typeof callbacks.addHistoryLog === 'function') {
+        callbacks.addHistoryLog(`Day ${gameState.currentDay} Lynch`, 'Town decided on No Lynch. Peaceful day.');
+      }
+      executeNightfallTransition(callbacks);
+    }
+  });
+}
+
 export function startNightPhase(callbacks = {}) {
   if (typeof callbacks.cancelAutoAdvance === 'function') callbacks.cancelAutoAdvance();
-  showCustomConfirm(`Send village to sleep and begin Night ${gameState.currentNight + 1}?`, {
+  const targetNight = gameState.currentNight + 1;
+  const promptText = gameState.dayLynchedPlayer
+    ? `Send village to sleep and begin Night ${targetNight}? (${gameState.dayLynchedPlayer} was executed today)`
+    : `Send village to sleep and begin Night ${targetNight}?`;
+
+  showCustomConfirm(promptText, {
     icon: '🌙',
     title: 'Begin Nightfall',
     confirmText: '🌙 Begin Night',
     confirmClass: 'btn-primary',
     onConfirm: () => {
-      gameState.phase = 'NIGHT';
-      gameState.currentNight++;
-      gameState.currentDay++;
-      gameState.wizardStepIndex = 0;
-      uiState.callerSubMode = 'target'; // Night 2+ is purely for skill targeting!
-      gameState.priestWakesTonight = (gameState.currentNight === 1 || !gameState.priestShieldTarget);
-      gameState.players.forEach(p => {
-        p.votes = 0;
-      });
-      gameState.nightActions.spellcasterTarget = null;
-      gameState.nightActions.wolfTarget = null;
-      gameState.nightActions.seerTarget = null;
-      gameState.nightActions.bodyguardTarget = null;
-      gameState.nightActions.witchHealed = false;
-      gameState.nightActions.witchHealTarget = null;
-      gameState.nightActions.witchPoisonTarget = null;
-      gameState.nightActions.witchArmPoison = false;
-      uiState.witchSelectionMode = null;
-      pauseTimer();
-      soundManager.playGong();
-      saveAppState();
-      if (typeof callbacks.renderGameScreen === 'function') callbacks.renderGameScreen();
-      showGameToast(`🌙 Night ${gameState.currentNight} has begun!`);
+      executeNightfallTransition(callbacks);
     }
   });
+}
+
+export function executeNightfallTransition(callbacks = {}) {
+  if (typeof callbacks.cancelAutoAdvance === 'function') callbacks.cancelAutoAdvance();
+  gameState.phase = 'NIGHT';
+  gameState.currentNight++;
+  gameState.currentDay++;
+  gameState.daySubPhase = 'discussion';
+  gameState.dayLynchedPlayer = null;
+  gameState.wizardStepIndex = 0;
+  uiState.callerSubMode = 'target'; // Night 2+ is purely for skill targeting!
+  gameState.priestWakesTonight = (gameState.currentNight === 1 || !gameState.priestShieldTarget);
+  gameState.players.forEach(p => {
+    p.votes = 0;
+  });
+  gameState.nightActions.spellcasterTarget = null;
+  gameState.nightActions.wolfTarget = null;
+  gameState.nightActions.seerTarget = null;
+  gameState.nightActions.bodyguardTarget = null;
+  gameState.nightActions.witchHealed = false;
+  gameState.nightActions.witchHealTarget = null;
+  gameState.nightActions.witchPoisonTarget = null;
+  gameState.nightActions.witchArmPoison = false;
+  uiState.witchSelectionMode = null;
+  pauseTimer();
+  soundManager.playGong();
+  saveAppState();
+
+  // Instant direct DOM transition:
+  const callerBox = document.getElementById('night-caller-box');
+  if (callerBox) callerBox.style.display = 'block';
+  const dayControlsBar = document.getElementById('day-controls-bar');
+  if (dayControlsBar) dayControlsBar.style.display = 'none';
+  const phasePill = document.getElementById('game-phase-pill');
+  if (phasePill) {
+    phasePill.className = 'game-phase-pill night';
+    phasePill.textContent = `🌙 Night ${gameState.currentNight}`;
+  }
+
+  const renderScreenFn = (typeof callbacks.renderGameScreen === 'function')
+    ? callbacks.renderGameScreen
+    : (typeof globalThis.renderGameScreen === 'function' ? globalThis.renderGameScreen : null);
+  if (renderScreenFn) {
+    renderScreenFn();
+  } else {
+    const renderTableFn = (typeof callbacks.renderTouchTable === 'function')
+      ? callbacks.renderTouchTable
+      : (typeof globalThis.renderTouchTable === 'function' ? globalThis.renderTouchTable : null);
+    if (renderTableFn) renderTableFn();
+    const renderCallerFn = (typeof callbacks.renderNightCaller === 'function')
+      ? callbacks.renderNightCaller
+      : (typeof globalThis.renderNightCaller === 'function' ? globalThis.renderNightCaller : null);
+    if (renderCallerFn) renderCallerFn();
+  }
+
+  showGameToast(`🌙 Night ${gameState.currentNight} has begun!`);
 }

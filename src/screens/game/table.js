@@ -341,6 +341,11 @@ export function renderTouchTable() {
         hubTitle = `Day ${gameState.currentDay} • Discussion`;
         hubSubtitle = 'Begin Voting ⚖️ ▶';
         hubReady = true;
+      } else if (gameState.dayLynchedPlayer) {
+        hubEmoji = '🌙';
+        hubTitle = `${gameState.dayLynchedPlayer} Lynched`;
+        hubSubtitle = `Tap for Night ${gameState.currentNight + 1} 🌙 ▶`;
+        hubReady = true;
       } else {
         // Lynch Sub-Phase
         if (leaders.length === 1 && maxVotes > 0) {

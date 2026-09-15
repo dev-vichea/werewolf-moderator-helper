@@ -140,6 +140,10 @@ export function showCustomAlert(message, options = {}) {
         cardEl.style.boxShadow = '';
       }
     }
+    if (uiState.dialogCloseTimeout) {
+      clearTimeout(uiState.dialogCloseTimeout);
+      uiState.dialogCloseTimeout = null;
+    }
     overlay.style.display = 'flex';
     if (overlay.classList && overlay.classList.add) overlay.classList.add('active');
   }
@@ -217,6 +221,11 @@ export function showCustomConfirm(message, options = {}) {
       resolve(val);
     };
 
+    if (uiState.dialogCloseTimeout) {
+      clearTimeout(uiState.dialogCloseTimeout);
+      uiState.dialogCloseTimeout = null;
+    }
+
     overlay.style.display = 'flex';
     void overlay.offsetHeight;
     overlay.classList.add('active');
@@ -230,15 +239,22 @@ export function handleCustomDialogResolve(result) {
   const overlay = document.getElementById('custom-dialog-overlay');
   if (overlay) {
     overlay.classList.remove('active');
-    setTimeout(() => {
-      overlay.style.display = 'none';
-      const cardEl = overlay.querySelector ? overlay.querySelector('.custom-dialog-card') : null;
-      if (cardEl) {
-        cardEl.style.borderColor = '';
-        cardEl.style.boxShadow = '';
+    if (uiState.dialogCloseTimeout) {
+      clearTimeout(uiState.dialogCloseTimeout);
+      uiState.dialogCloseTimeout = null;
+    }
+    uiState.dialogCloseTimeout = setTimeout(() => {
+      uiState.dialogCloseTimeout = null;
+      if (!uiState.activeDialogResolver && overlay) {
+        overlay.style.display = 'none';
+        const cardEl = overlay.querySelector ? overlay.querySelector('.custom-dialog-card') : null;
+        if (cardEl) {
+          cardEl.style.borderColor = '';
+          cardEl.style.boxShadow = '';
+        }
+        const titleEl = document.getElementById('custom-dialog-title');
+        if (titleEl) titleEl.style.color = '';
       }
-      const titleEl = document.getElementById('custom-dialog-title');
-      if (titleEl) titleEl.style.color = '';
     }, 200);
   }
   soundManager.playBeep();

@@ -9,7 +9,9 @@ import { saveAppState } from '../../state/storage.js';
 import { showGameToast } from '../../ui/toast.js';
 import { showCustomAlert } from '../../ui/dialog.js';
 
-export function smartAutoFillRemainingRoles(isExplicitManualOrSunrise = false, callbacks = {}) {
+export function smartAutoFillRemainingRoles(isExplicitManual = false, callbacks = {}) {
+  // Only auto-fill if the user explicitly triggers it (e.g. via Auto-Fill button)
+  if (!isExplicitManual) return [];
   if (!gameState.inProgress) return [];
   const unknownPlayers = gameState.players.filter(p => p.role === 'Unknown');
   if (unknownPlayers.length === 0) return [];
@@ -36,45 +38,16 @@ export function smartAutoFillRemainingRoles(isExplicitManualOrSunrise = false, c
 
   const assignedUpdates = [];
 
-  // CASE 1: Exactly 1 unknown player remains -> assign the last missing role or Villager
-  if (unknownPlayers.length === 1) {
-    const p = unknownPlayers[0];
-    const autoRole = missingRoles.length > 0 ? missingRoles[0] : 'Villager';
+  const shuffledMissing = [...missingRoles];
+  for (let i = shuffledMissing.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledMissing[i], shuffledMissing[j]] = [shuffledMissing[j], shuffledMissing[i]];
+  }
+  unknownPlayers.forEach((p, idx) => {
+    const autoRole = shuffledMissing[idx] || 'Villager';
     p.role = autoRole;
     assignedUpdates.push({ player: p, role: autoRole });
-  }
-  // CASE 2: All special roles from deck are fulfilled -> ONLY Villagers remain!
-  else {
-    const nonVillagersMissing = missingRoles.filter(r => r !== 'Villager');
-    if (nonVillagersMissing.length === 0) {
-      // All remaining unknowns MUST be Villagers!
-      unknownPlayers.forEach(p => {
-        p.role = 'Villager';
-        assignedUpdates.push({ player: p, role: 'Villager' });
-      });
-    }
-    // CASE 3: Exact match on missing roles count and they are all identical
-    else if (unknownPlayers.length === missingRoles.length && missingRoles.every(r => r === missingRoles[0])) {
-      const fillRole = missingRoles[0];
-      unknownPlayers.forEach(p => {
-        p.role = fillRole;
-        assignedUpdates.push({ player: p, role: fillRole });
-      });
-    }
-    // CASE 4: Explicit manual click OR Sunrise resolution
-    else if (isExplicitManualOrSunrise) {
-      const shuffledMissing = [...missingRoles];
-      for (let i = shuffledMissing.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledMissing[i], shuffledMissing[j]] = [shuffledMissing[j], shuffledMissing[i]];
-      }
-      unknownPlayers.forEach((p, idx) => {
-        const autoRole = shuffledMissing[idx] || 'Villager';
-        p.role = autoRole;
-        assignedUpdates.push({ player: p, role: autoRole });
-      });
-    }
-  }
+  });
 
   if (assignedUpdates.length > 0) {
     soundManager.playChime();

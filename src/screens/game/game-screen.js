@@ -271,23 +271,31 @@ export function checkWinCondition(callbacks = {}) {
   const wolves = alive.filter(p => getRoleData(p.role).team === 'Werewolf');
   const town = alive.filter(p => getRoleData(p.role).team !== 'Werewolf');
 
+  const showWin = (typeof callbacks.showWinOverlay === 'function')
+    ? callbacks.showWinOverlay
+    : (typeof globalThis.showWinOverlay === 'function' ? globalThis.showWinOverlay : showWinOverlay);
+
   const loversAlive = alive.filter(p => p.isLover);
   if (loversAlive.length === 2 && alive.length === 2) {
-    showWinOverlay('💘 Lovers Win!', `${loversAlive[0].name} and ${loversAlive[1].name} are the only survivors!`, callbacks);
+    showWin('💘 Lovers Win!', `${loversAlive[0].name} and ${loversAlive[1].name} are the only survivors!`, callbacks);
     return;
   }
 
-  // If there are still Unknown roles among alive players, wait until roles are revealed or assigned
+  // If there are still Unknown roles among alive players, only wait if not all werewolves in deck have been assigned
   const hasUnknowns = alive.some(p => p.role === 'Unknown');
-  if (hasUnknowns) return;
+  const deck = lobbyState.roleDeck || {};
+  const totalDeckWolves = (deck['Werewolf'] || 0) + (deck['Lycan'] || 0);
+  const assignedWolvesCount = gameState.players.filter(p => p.role === 'Werewolf' || p.role === 'Lycan').length;
+  const unassignedWolvesRemain = totalDeckWolves > 0 && assignedWolvesCount < totalDeckWolves;
 
   if (wolves.length === 0) {
-    showWinOverlay('🎉 Village Wins!', 'All werewolves have been eliminated! The village is saved!', callbacks);
+    if (unassignedWolvesRemain && hasUnknowns) return;
+    showWin('🎉 Village Wins!', 'All werewolves have been eliminated! The village is saved!', callbacks);
     return;
   }
 
   if (wolves.length >= town.length) {
-    showWinOverlay('🐺 Werewolves Win!', `Werewolves (${wolves.length}) equal or outnumber Townsfolk (${town.length})!`, callbacks);
+    showWin('🐺 Werewolves Win!', `Werewolves (${wolves.length}) equal or outnumber Townsfolk (${town.length})!`, callbacks);
     return;
   }
 }

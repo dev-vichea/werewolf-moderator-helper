@@ -76,6 +76,13 @@ export function handleCenterHubTap(callbacks = {}) {
       return;
     }
 
+    // If a player was already lynched today, tapping center hub begins Night!
+    if (gameState.dayLynchedPlayer) {
+      if (typeof callbacks.startNightPhase === 'function') callbacks.startNightPhase(callbacks);
+      else if (typeof globalThis.startNightPhase === 'function') globalThis.startNightPhase(callbacks);
+      return;
+    }
+
     // Lynch sub-phase
     const alive = gameState.players.filter(p => p.status === 'alive');
     let maxVotes = 0;

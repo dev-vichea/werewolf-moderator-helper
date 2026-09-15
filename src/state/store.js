@@ -37,6 +37,7 @@ export const gameState = {
   priestWakesTonight: true,
   history: [],
   daySubPhase: 'discussion', // 'discussion' | 'lynch'
+  dayLynchedPlayer: null, // Name/seat of player lynched during current day
   timerRemaining: 90,
   timerRunning: false
 };
